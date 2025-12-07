@@ -5,9 +5,9 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V6.1", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V6.2", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V6.1)")
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V6.2)")
 st.markdown("""
 Bu sistem, akademik ders programlarını optimize eder ve **haftalık tablo formatında** çıktı verir.
 1. Önce **Örnek Şablonu** indirin (İçinde tüm ders yükleri hazırdır).
@@ -15,15 +15,15 @@ Bu sistem, akademik ders programlarını optimize eder ve **haftalık tablo form
 """)
 
 # --- AYARLAR ---
-DERSLIK_SAYISI = 40 # Kapasiteyi biraz artırdık
+DERSLIK_SAYISI = 40 
 MAX_SURE = 120
 CEZA_ISTENMEYEN_GUN_BAZ = -50
 ODUL_ARDISIK_BAZ = 100
 CEZA_BOSLUKLU_GUN = -200
 
-# --- ŞABLON OLUŞTURMA FONKSİYONU (TAM SENARYO - MASTER DATA) ---
+# --- ŞABLON OLUŞTURMA FONKSİYONU (GÜNCEL VERİ) ---
 def sablon_olustur():
-    # VERİ SETİ: Kullanıcının paylaştığı gerçek ders yükü
+    # VERİ SETİ: Genel zorunlu dersler (TDB, YDB-Genel) çıkarılmıştır.
     data = [
         # Turizm İşletmeciliği
         {"DersKodu": "TUİ 3011", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
@@ -46,18 +46,13 @@ def sablon_olustur():
         {"DersKodu": "YDB 4821", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Öğr. Gör. İ. Z. D.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "YDB 3809", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. İ. Z. D.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "İSG 3901", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. M. G.", "OrtakDersID": "ORT_ISG", "KidemPuani": 1}, 
-        {"DersKodu": "YDB 3919", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. Ş. D.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 4909", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Öğr. Gör. Ş. D.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "YDB 3917", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. Ü. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "YDB 4907", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Öğr. Gör. Ü. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "TUİ 2503", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "TUİ 3509", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "TUİ 4525", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ENF 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1}, 
-        {"DersKodu": "YDB 1811", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. H. Y.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 2811", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "TDB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. S. A.", "OrtakDersID": "", "KidemPuani": 1},
 
         # İşletme
         {"DersKodu": "İŞL1005", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
@@ -84,10 +79,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL2005", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL3503", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
-        {"DersKodu": "YDB 1811", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. H. Y.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 2811", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "TDB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. S. A.", "OrtakDersID": "", "KidemPuani": 1},
 
         # Ekonomi ve Finans
         {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1}, 
@@ -114,10 +106,7 @@ def sablon_olustur():
         {"DersKodu": "EKF 4003", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ENF 1805", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1}, 
         {"DersKodu": "İŞL 3907", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
-        {"DersKodu": "YDB 1811", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. H. Y.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 2811", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "TDB 1801", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. S. A.", "OrtakDersID": "", "KidemPuani": 1},
 
         # Yönetim Bilişim Sistemleri (YBS)
         {"DersKodu": "İŞL 2829", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1}, 
@@ -142,10 +131,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL 1833", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL 3001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL 1835", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
-        {"DersKodu": "YDB 1811", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. H. Y.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 2811", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "TDB 1801", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. S. A.", "OrtakDersID": "", "KidemPuani": 1},
 
         # Uluslararası Ticaret ve Lojistik (UTL)
         {"DersKodu": "İŞL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1}, 
@@ -174,10 +160,7 @@ def sablon_olustur():
         {"DersKodu": "UTL3509", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "UTL2009", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "UTL1005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "ORT_ISL_MAT", "KidemPuani": 10}, 
-        {"DersKodu": "YDB 1811", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. H. Y.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "YDB 2811", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
-        {"DersKodu": "TDB 1801", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. S. A.", "OrtakDersID": "", "KidemPuani": 1},
     ]
 
     # DataFrame'e çevir
