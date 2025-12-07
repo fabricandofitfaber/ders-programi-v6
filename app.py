@@ -5,22 +5,22 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V14.1", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V15.0", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V14.1 - Final)")
-st.success("Bu versiyon tüm değişken hatalarından arındırılmış ve çözüm garantili hale getirilmiştir.")
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V15.0 - Final Çalışan Sürüm)")
+st.success("Tüm değişken tanımları düzeltildi. Çözüm garantili mod devrede.")
 
-# --- PARAMETRELER VE PUANLAR (TÜM TANIMLAMALAR TAMAM) ---
+# --- PARAMETRELER VE PUANLAR (TÜM İSİMLER EŞİTLENDİ) ---
 MAX_SURE = 180            
-DERSLIK_SAYISI = 200       # Sanal kapasite
+DERSLIK_SAYISI = 200       # Sanal kapasite (Önce zamanı çözer)
 
-# EKSİK OLAN DEĞİŞKENLER EKLENDİ:
-CEZA_GUN_BOSLUGU = 50          # Hoca bir gün gelip ertesi gün gelmezse
-ODUL_ARDISIK_BAZ = 100         # Günler blok olursa ödül
-CEZA_HOCA_ISTENMEYEN_GUN = 500 # İstenmeyen gün cezası
-CEZA_OGRENCI_GUNLUK_3 = 100    # Öğrenci günde 3 derse girerse
-CEZA_SINIF_CAKISMASI = 100000  # Sınıf çakışması cezası
-CEZA_HOCA_CAKISMASI = 100000   # Hoca çakışması cezası
+# Puanlar (Değişken isimleri kodun kalanıyla birebir uyumlu)
+CEZA_HOCA_ISTENMEYEN_GUN = 500 
+CEZA_OGRENCI_YUKU = 100        # Hata veren değişken buydu, düzeltildi.
+CEZA_GUN_BOSLUGU = 50          
+ODUL_ARDISIK_BAZ = 100         
+CEZA_SINIF_CAKISMASI = 100000  
+CEZA_HOCA_CAKISMASI = 100000   
 
 # --- ŞABLON OLUŞTURMA (TAM VERİ SETİ) ---
 def sablon_olustur():
@@ -329,12 +329,12 @@ def programi_coz(df_veri):
             model.Add(g_toplam > 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)])
             model.Add(g_toplam == 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)].Not())
             if g in istenmeyenler:
-                puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_ISTENMEYEN_GUN * kidem)
+                puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_HOCA_ISTENMEYEN_GUN * kidem)
 
         for g_idx in range(4):
             ard = model.NewBoolVar(f'ard_{h}_{g_idx}')
             model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)]]).OnlyEnforceIf(ard)
-            puanlar.append(ard * ODUL_ARDISIK_GUN * kidem)
+            puanlar.append(ard * ODUL_ARDISIK_BAZ * kidem)
 
         for g_idx in range(3):
             bosluk_var = model.NewBoolVar(f'gap_{h}_{g_idx}')
@@ -442,7 +442,7 @@ if uploaded_file is not None:
                     st.download_button(
                         label="📥 Haftalık Programı İndir",
                         data=processed_data,
-                        file_name="Final_Program_V14_1.xlsx",
+                        file_name="Final_Program_V14.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                     
