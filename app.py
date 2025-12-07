@@ -5,29 +5,30 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V13.1", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V14.0", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V13.1 - Tam Verili Final)")
-st.info("""
-**Bu versiyon şunları içerir:**
-1. **Tam Veri Seti:** 'Örnek Şablon' butonuna bastığınızda tüm bölümlerin dersleri dolu gelir.
-2. **Esnek Motor:** 'Çözüm Bulunamadı' hatası vermez, gerekirse kuralları esnetip size bir program sunar.
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V14.0 - Teşhis Modu)")
+st.error("""
+**DİKKAT:** Bu versiyon 'Çözüm Bulunamadı' hatasını devre dışı bırakmıştır.
+Eğer program matematiksel olarak sığmıyorsa, **ÇAKIŞMA YAPARAK** sonuç üretir.
+Lütfen en alttaki **'Çakışma Raporu'nu** mutlaka inceleyin.
 """)
 
-# --- CEZA PUANLARI (Önem Sırası) ---
-CEZA_HOCA_ISTENMEYEN_GUN = 500   # Hoca istemediği güne gelirse
-CEZA_OGRENCI_GUNLUK_3 = 100      # Öğrenci günde 3 derse girerse (İdeal olan 2)
-CEZA_GUN_BOSLUGU = 50            # Hoca Pzt-Çrş gelip Salı gelmezse
-ODUL_ARDISIK_GUN = 200           # Günler blok olursa ödül
+# --- PARAMETRELER ---
+MAX_SURE = 120            
+DERSLIK_SAYISI = 200       # Derslik sorunu yok sayıyoruz
 
-# Sabitler
-DERSLIK_SAYISI = 100 
-MAX_SURE = 300 
+# CEZA PUANLARI (Milyon puan veriyoruz ki mecbur kalmadıkça yapmasın)
+CEZA_HOCA_CAKISMASI = 1000000 
+CEZA_SINIF_CAKISMASI = 1000000
+CEZA_OGRENCI_YUKU = 500       
+CEZA_ISTENMEYEN_GUN = 100      
 
-# --- ŞABLON OLUŞTURMA (TAM LİSTE GERİ GELDİ) ---
+# --- ŞABLON OLUŞTURMA ---
 def sablon_olustur():
+    # Güncel Veri Seti
     data = [
-        # --- TURİZM ---
+        # Turizm
         {"DersKodu": "TUİ 3011", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "TUİ 2501", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "TUİ 4539", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
@@ -52,7 +53,7 @@ def sablon_olustur():
         {"DersKodu": "ENF 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1},
         {"DersKodu": "ATB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
 
-        # --- İŞLETME ---
+        # İşletme
         {"DersKodu": "İŞL1005", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "İŞL3001", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "İŞL3003", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1},
@@ -79,7 +80,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
 
-        # --- EKONOMİ ---
+        # Ekonomi
         {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1},
         {"DersKodu": "EKF 1003", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_MAT_EKF", "KidemPuani": 1},
         {"DersKodu": "İŞL 2819", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1},
@@ -106,7 +107,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL 3907", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
 
-        # --- YBS ---
+        # YBS
         {"DersKodu": "İŞL 2829", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1},
         {"DersKodu": "İŞL 3809", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1},
         {"DersKodu": "İŞL 2827", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1},
@@ -131,7 +132,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL 1835", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
 
-        # --- UTL ---
+        # UTL
         {"DersKodu": "İŞL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1},
         {"DersKodu": "UTL2005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5},
         {"DersKodu": "UTL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5},
@@ -173,7 +174,7 @@ def sablon_olustur():
     worksheet = writer.book.add_worksheet('Aciklamalar')
     aciklamalar = [
         "BU DOSYA GÜNCEL VERİLERİ İÇERİR.",
-        "ÖNEMLİ: ORTAK ID'leri silmeyiniz!",
+        "ÖNEMLİ: ORTAK ID'leri silmeyiniz! Silerseniz sistem kilitlenir.",
         "1. İstenmeyen Gün: Hocanın gelmek istemediği günleri virgülle yazın."
     ]
     for i, satir in enumerate(aciklamalar):
@@ -236,13 +237,14 @@ def programi_coz(df_veri):
         for g_idx, g in enumerate(gunler):
             hoca_gun_aktif[(h, g_idx)] = model.NewBoolVar(f'{h}_{g}')
 
-    # --- HARD CONSTRAINTS (KESİN KURALLAR) ---
+    # --- KISITLAR ---
     
-    # 1. Her ders 1 kere
+    # 1. Her ders 1 kere (KESİN)
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
 
-    # 2. Hoca Çakışması (KESİN YASAK)
+    # 2. Hoca Çakışması (SOFT - CEZALI)
+    puanlar = []
     for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
         unique_ders_temsilcileri = []
@@ -258,9 +260,13 @@ def programi_coz(df_veri):
         
         for g in gunler:
             for s in seanslar:
-                model.Add(sum(program[(d, g, s)] for d in unique_ders_temsilcileri) <= 1)
+                conflict = model.NewBoolVar(f'hoca_conflict_{h}_{g}_{s}')
+                total = sum(program[(d, g, s)] for d in unique_ders_temsilcileri)
+                model.Add(total > 1).OnlyEnforceIf(conflict)
+                model.Add(total <= 1).OnlyEnforceIf(conflict.Not())
+                puanlar.append(conflict * -CEZA_HOCA_CAKISMASI)
 
-    # 3. Bölüm/Sınıf Çakışması (Aynı anda 2 ders olamaz)
+    # 3. Bölüm/Sınıf Çakışması (SOFT - CEZALI)
     bolumler = df_veri['Bolum'].unique()
     siniflar = sorted(df_veri['Sinif'].unique())
     
@@ -270,9 +276,20 @@ def programi_coz(df_veri):
             if ilgili:
                 for g in gunler:
                     for s in seanslar: 
-                        model.Add(sum(program[(d, g, s)] for d in ilgili) <= 1)
+                        s_conflict = model.NewBoolVar(f'sinif_conflict_{b}_{sin}_{g}_{s}')
+                        s_total = sum(program[(d, g, s)] for d in ilgili)
+                        model.Add(s_total > 1).OnlyEnforceIf(s_conflict)
+                        model.Add(s_total <= 1).OnlyEnforceIf(s_conflict.Not())
+                        puanlar.append(s_conflict * -CEZA_SINIF_CAKISMASI)
+                    
+                    # Günlük yük cezası (Soft)
+                    gunluk_toplam = sum(program[(d, g, s)] for d in ilgili for s in seanslar)
+                    overload = model.NewBoolVar(f'overload_{b}_{sin}_{g}')
+                    model.Add(gunluk_toplam > 2).OnlyEnforceIf(overload)
+                    model.Add(gunluk_toplam <= 2).OnlyEnforceIf(overload.Not())
+                    puanlar.append(overload * -CEZA_OGRENCI_YUKU)
 
-    # 4. Ortak Ders Senkronizasyonu
+    # 4. Ortak Ders Senkronizasyonu (KESİN)
     for o_id, d_list in ortak_ders_gruplari.items():
         if len(d_list) > 1:
             ref = d_list[0]
@@ -280,7 +297,7 @@ def programi_coz(df_veri):
                 for g in gunler:
                     for s in seanslar: model.Add(program[(ref, g, s)] == program[(diger, g, s)])
     
-    # 5. Zorunlu Gün
+    # 5. Zorunlu Gün (KESİN)
     for d in tum_dersler:
         zg, zs = ders_detaylari[d]['zorunlu_gun'], ders_detaylari[d]['zorunlu_seans']
         if zg:
@@ -292,26 +309,11 @@ def programi_coz(df_veri):
                 if s != zs:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 6. Kapasite
+    # 6. Kapasite (Yüksek)
     for g in gunler:
         for s in seanslar: model.Add(sum(program[(d, g, s)] for d in tum_dersler) <= DERSLIK_SAYISI)
 
-    # --- SOFT CONSTRAINTS (PUANLAMA) ---
-    puanlar = []
-    
-    # A. Öğrenci Günlük Yük Dengesi (Günde 2 ders ideal, 3 olursa ceza)
-    for b in bolumler:
-        for sin in siniflar:
-            ilgili = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
-            if ilgili:
-                for g in gunler:
-                    gunluk_toplam = sum(program[(d, g, s)] for d in ilgili for s in seanslar)
-                    overload = model.NewBoolVar(f'overload_{b}_{sin}_{g}')
-                    model.Add(gunluk_toplam > 2).OnlyEnforceIf(overload)
-                    model.Add(gunluk_toplam <= 2).OnlyEnforceIf(overload.Not())
-                    puanlar.append(overload * -CEZA_OGRENCI_GUNLUK_3)
-
-    # B. Hoca Tercihleri ve Konforu
+    # --- OBJEKTİF ---
     for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
         unique_d = []
@@ -330,12 +332,7 @@ def programi_coz(df_veri):
             model.Add(g_toplam > 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)])
             model.Add(g_toplam == 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)].Not())
             if g in istenmeyenler:
-                puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_HOCA_ISTENMEYEN_GUN * kidem)
-
-        for g_idx in range(4):
-            ard = model.NewBoolVar(f'ard_{h}_{g_idx}')
-            model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)]]).OnlyEnforceIf(ard)
-            puanlar.append(ard * ODUL_ARDISIK_GUN * kidem)
+                puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_ISTENMEYEN_GUN * kidem)
 
         for g_idx in range(3):
             bosluk_var = model.NewBoolVar(f'gap_{h}_{g_idx}')
@@ -353,13 +350,13 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.info("Kullanmaya başlamadan önce şablonu indirin:")
     st.download_button(
-        label="📥 Güncel Ders Yükünü İndir (V13.1)",
+        label="📥 Tam Verili Şablon İndir (V14.0)",
         data=sablon_olustur(),
-        file_name="Ders_Yukleri_Guncel_V13_1.xlsx",
+        file_name="Ders_Yukleri_Tam_V14.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-uploaded_file = st.file_uploader("Excel Dosyasını Yükleyin", type=['xlsx'])
+uploaded_file = st.file_uploader("Dosyayı Yükleyin", type=['xlsx'])
 
 if uploaded_file is not None:
     if st.button("Programı Dağıt"):
@@ -369,32 +366,45 @@ if uploaded_file is not None:
                 status, solver, program, tum_dersler, ders_detaylari, hoca_gun_aktif = programi_coz(df_input)
 
                 if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-                    st.balloons()
-                    st.success(f"✅ Program Başarıyla Oluşturuldu! (Puan: {solver.ObjectiveValue()})")
+                    st.success(f"✅ Program Oluşturuldu! (Skor: {solver.ObjectiveValue()})")
                     
-                    st.subheader("⚠️ Durum Raporu (İdealden Sapmalar)")
+                    st.subheader("⚠️ Çakışma Raporu (Teşhis)")
                     gunler = ['Pazartesi', 'Sali', 'Carsamba', 'Persembe', 'Cuma']
                     hoca_listesi = df_input['HocaAdi'].dropna().unique().tolist()
-                    seanslar = ['Sabah', 'Ogle', 'OgledenSonra']
-                    bolumler = df_input['Bolum'].unique()
-                    siniflar = sorted(df_input['Sinif'].unique())
                     
-                    # Öğrenci Yükü Kontrolü
-                    for b in bolumler:
-                        for sin in siniflar:
-                            ilgili = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
-                            if ilgili:
-                                for g in gunler:
-                                    toplam = 0
-                                    for s in seanslar:
-                                        if any(solver.Value(program[(d, g, s)]) for d in ilgili):
-                                            toplam += 1
-                                    if toplam > 2:
-                                        st.warning(f"{b} {sin}. Sınıf -> {g} günü {toplam} ders var (Mecburiyetten).")
+                    cakisma_var = False
+                    for h in hoca_listesi:
+                        for g in gunler:
+                            for s in seanslar:
+                                dersler_burada = []
+                                for d in tum_dersler:
+                                    if ders_detaylari[d]['hoca'] == h and solver.Value(program[(d, g, s)]) == 1:
+                                        oid = ders_detaylari[d]['ortak_id']
+                                        if not oid or (oid and d not in [x[0] for x in dersler_burada if x[1]]): 
+                                            dersler_burada.append((d, oid))
+                                
+                                unique_oids = set()
+                                count = 0
+                                for d_code, d_oid in dersler_burada:
+                                    if d_oid:
+                                        if d_oid not in unique_oids:
+                                            unique_oids.add(d_oid)
+                                            count += 1
+                                    else:
+                                        count += 1
+                                
+                                if count > 1:
+                                    st.error(f"ÇAKIŞMA: {h} -> {g} {s}: {count} ders aynı anda!")
+                                    cakisma_var = True
+                    
+                    if not cakisma_var:
+                        st.success("Mükemmel: Hoca çakışması yok.")
 
-                    # --- EXCEL ÇIKTISI ---
                     output = io.BytesIO()
                     writer = pd.ExcelWriter(output, engine='xlsxwriter')
+                    
+                    bolumler = df_input['Bolum'].unique()
+                    siniflar = sorted(df_input['Sinif'].unique())
                     
                     for bolum in bolumler:
                         index_list = pd.MultiIndex.from_product([gunler, seanslar], names=['Gün', 'Seans'])
@@ -429,11 +439,11 @@ if uploaded_file is not None:
                     st.download_button(
                         label="📥 Haftalık Programı İndir",
                         data=processed_data,
-                        file_name="Final_Program_V13_1.xlsx",
+                        file_name="Final_Program_V14.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                     
                 else:
-                    st.error("❌ Çözüm bulunamadı. Lütfen 'Ortak Ders ID'lerin doğru girildiğinden emin olun.")
+                    st.error("❌ Beklenmedik durum.")
             except Exception as e:
                 st.error(f"Hata: {e}")
