@@ -5,20 +5,23 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V10.0", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V10.1", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V10.0 - Garantili Mod)")
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V10.1 - Final)")
 st.markdown("""
-**Bu versiyon asla 'Çözüm Bulunamadı' hatası vermez.**
-* Eğer program matematiksel olarak sığmıyorsa, yazılım **çakışma yapmayı göze alarak** bir çıktı üretir.
-* Sayfanın en altındaki **"⚠️ Çakışma Raporu"** kısmından hangi derslerin üst üste bindiğini görebilirsiniz.
+**Bu versiyon kesin çözüm üretir.**
+Eğer programda mantıksal bir imkansızlık varsa bile (örneğin aynı anda 3 yerde olması gereken hoca),
+sistem bunu **hata vererek durdurmaz**, **uyarı vererek programı oluşturur.**
 """)
 
-# --- PARAMETRELER ---
+# --- PARAMETRELER VE PUANLAR (HATALAR GİDERİLDİ) ---
 MAX_SURE = 180            
 CEZA_ISTENMEYEN_GUN = 50 
-CEZA_SINIF_CAKISMASI = 100000  # Çakışma olmasın diye çok büyük ceza verdik
-CEZA_HOCA_CAKISMASI = 100000   # Ama yasaklamadık (Soft Constraint)
+CEZA_SINIF_CAKISMASI = 100000  # Çakışma olmasın diye çok büyük ceza
+CEZA_HOCA_CAKISMASI = 100000   
+CEZA_GUN_BOSLUGU = 50          # EKSİK OLAN BU TANIM EKLENDİ
+ODUL_ARDISIK_BAZ = 100         # EKSİK OLAN BU TANIM EKLENDİ
+DERSLIK_SAYISI = 100           # Sanal kapasite
 
 # --- ŞABLON OLUŞTURMA ---
 def sablon_olustur():
@@ -76,7 +79,7 @@ def sablon_olustur():
         {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
 
-        # Ekonomi
+        # Ekonomi ve Finans
         {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1},
         {"DersKodu": "EKF 1003", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_MAT_EKF", "KidemPuani": 1},
         {"DersKodu": "İŞL 2819", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1},
@@ -143,7 +146,7 @@ def sablon_olustur():
         {"DersKodu": "UTL3503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3},
         {"DersKodu": "UTL4515", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "ORT_ETICARET", "KidemPuani": 3},
         {"DersKodu": "UTL2503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "", "KidemPuani": 3},
-        {"DersKodu": "KAY1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 3},
+        {"DersKodu": "KAY1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK_TEMEL", "KidemPuani": 3},
         {"DersKodu": "UTL3519", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "UTL4501", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "UTL3005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. G. K.", "OrtakDersID": "", "KidemPuani": 1},
@@ -240,10 +243,8 @@ def programi_coz(df_veri):
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
 
     # 2. Hoca Çakışması (SOFT CONSTRAINT - CEZALI)
-    # Hoca aynı anda 2 yerde olamaz ama mecbur kalırsa olsun (Çözüm çıksın diye)
     puanlar = []
-    conflict_report = [] # Çakışmaları takip etmek için (Visualization)
-
+    
     for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
         unique_ders_temsilcileri = []
@@ -259,14 +260,11 @@ def programi_coz(df_veri):
         
         for g in gunler:
             for s in seanslar:
-                # Normalde <= 1 olmalı. Biz <= 1 + conflict diyoruz.
                 conflict = model.NewBoolVar(f'hoca_conflict_{h}_{g}_{s}')
                 total_ders = sum(program[(d, g, s)] for d in unique_ders_temsilcileri)
                 
                 model.Add(total_ders > 1).OnlyEnforceIf(conflict)
                 model.Add(total_ders <= 1).OnlyEnforceIf(conflict.Not())
-                
-                # Ceza puanı ekle
                 puanlar.append(conflict * -CEZA_HOCA_CAKISMASI)
 
     # 3. Bölüm/Sınıf Çakışması (SOFT CONSTRAINT - CEZALI)
@@ -306,6 +304,10 @@ def programi_coz(df_veri):
                 if s != zs:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
+    # 6. Kapasite (KESİN - Ama yüksek tuttuk)
+    for g in gunler:
+        for s in seanslar: model.Add(sum(program[(d, g, s)] for d in tum_dersler) <= DERSLIK_SAYISI)
+
     # --- OBJEKTİF ---
     for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
@@ -327,7 +329,13 @@ def programi_coz(df_veri):
             if g in istenmeyenler:
                 puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_ISTENMEYEN_GUN * kidem)
 
-        # Delik deşik gün cezası
+        # Ardışık Gün Ödülü
+        for g_idx in range(4):
+            ard = model.NewBoolVar(f'ard_{h}_{g_idx}')
+            model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)]]).OnlyEnforceIf(ard)
+            puanlar.append(ard * ODUL_ARDISIK_BAZ * kidem)
+
+        # Gün Boşluğu Cezası
         for g_idx in range(3):
             bosluk_var = model.NewBoolVar(f'gap_{h}_{g_idx}')
             model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)].Not(), hoca_gun_aktif[(h, g_idx+2)]]).OnlyEnforceIf(bosluk_var)
@@ -344,9 +352,9 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.info("Kullanmaya başlamadan önce şablonu indirin:")
     st.download_button(
-        label="📥 Güncel Ders Yükünü İndir (V10.0)",
+        label="📥 Güncel Ders Yükünü İndir (V10.1)",
         data=sablon_olustur(),
-        file_name="Ders_Yukleri_Guncel_V10.xlsx",
+        file_name="Ders_Yukleri_Guncel_V10_1.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
@@ -377,13 +385,11 @@ if uploaded_file is not None:
                                 dersler_burada = []
                                 for d in tum_dersler:
                                     if ders_detaylari[d]['hoca'] == h and solver.Value(program[(d, g, s)]) == 1:
-                                        # Ortak ders kontrolü: Aynı ID ise tek say
+                                        # Ortak ders kontrolü
                                         oid = ders_detaylari[d]['ortak_id']
                                         if not oid or (oid and d not in [x[0] for x in dersler_burada if x[1]]): 
-                                            # Basitçe listeye ekle, detaylı kontrol zor
                                             dersler_burada.append((d, oid))
                                 
-                                # Eğer unique ortak ID sayısı > 1 ise çakışma var
                                 unique_oids = set()
                                 count = 0
                                 for d_code, d_oid in dersler_burada:
@@ -400,7 +406,7 @@ if uploaded_file is not None:
                     if hoca_cakismalari:
                         for u in hoca_cakismalari: st.error(u)
                     else:
-                        st.success("Hoca çakışması yok.")
+                        st.success("Mükemmel: Hoca çakışması yok.")
 
                     # --- EXCEL ÇIKTISI ---
                     output = io.BytesIO()
@@ -442,7 +448,7 @@ if uploaded_file is not None:
                     st.download_button(
                         label="📥 Haftalık Programı İndir",
                         data=processed_data,
-                        file_name="Haftalik_Program_V10.xlsx",
+                        file_name="Haftalik_Program_V10_1.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                     
