@@ -5,28 +5,31 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V7.0", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V7.1", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V7.0 - Esnek Mod)")
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V7.1 - Kararlı Sürüm)")
 st.markdown("""
-**Yenilikler:**
+**Özellikler:**
 1. **Çözüm Garantisi:** Katı kurallar esnetildi, program mutlaka oluşturulur.
 2. **Kusur Raporu:** İdeal olmayan durumlar (gün boşlukları, çakışmalar) en altta listelenir.
-3. **Ortak Ders:** Farklı bölümlerin ortak dersleri tek derslik/tek hoca olarak işlenir.
+3. **Dil Dersleri:** Genel zorunlu dil dersleri şablondan çıkarılmıştır.
 """)
 
-# --- PARAMETRELER (CEZA PUANLARI) ---
-# Bu puanlar "ne kadar kötü" olduğunu belirler.
-DERSLIK_SAYISI = 50       # Derslik sorunu olmasın diye yüksek tuttuk
-MAX_SURE = 120            # Süre
-CEZA_ISTENMEYEN_GUN = 50  # İstenmeyen güne ders gelirse (Düşük Ceza)
-CEZA_GUN_BOSLUGU = 500    # Pzt-Çrş gelip Salı gelmeme (Orta Ceza)
-CEZA_DIKEY_CAKISMA = 5000 # 1. ve 2. sınıfın çakışması (Çok Yüksek Ceza - Ama Yasak Değil)
+# --- PARAMETRELER VE PUANLAR ---
+DERSLIK_SAYISI = 50       # Yüksek kapasite (Çözüm tıkanmasın diye)
+MAX_SURE = 120            # Hesaplama süresi (saniye)
 
-# --- ŞABLON OLUŞTURMA (AYNI VERİ) ---
+# Puanlar (Negatifler Ceza, Pozitifler Ödül)
+CEZA_ISTENMEYEN_GUN = 50  # İstenmeyen güne ders gelirse
+CEZA_GUN_BOSLUGU = 500    # Pzt-Çrş gelip Salı gelmeme durumu (Delik deşik program)
+CEZA_DIKEY_CAKISMA = 5000 # 1. ve 2. sınıfın çakışması (Çok yüksek ceza)
+ODUL_ARDISIK_BAZ = 200    # Hatanın kaynağı buydu: Şimdi tanımlandı. (Ardışık günler iyidir)
+
+# --- ŞABLON OLUŞTURMA ---
 def sablon_olustur():
-    # VERİ SETİ: (Önceki veri setiniz aynen korunuyor)
+    # VERİ SETİ: Dil dersleri temizlenmiş ana veri
     data = [
+        # Turizm İşletmeciliği
         {"DersKodu": "TUİ 3011", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "TUİ 2501", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "TUİ 4539", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
@@ -54,6 +57,8 @@ def sablon_olustur():
         {"DersKodu": "TUİ 4525", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ENF 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1}, 
         {"DersKodu": "ATB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
+
+        # İşletme
         {"DersKodu": "İŞL1005", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "İŞL3001", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
         {"DersKodu": "İŞL3003", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL_YON", "KidemPuani": 1}, 
@@ -79,6 +84,8 @@ def sablon_olustur():
         {"DersKodu": "İŞL3503", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
+
+        # Ekonomi ve Finans
         {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1}, 
         {"DersKodu": "EKF 1003", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_MAT_EKF", "KidemPuani": 1}, 
         {"DersKodu": "İŞL 2819", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1}, 
@@ -104,6 +111,8 @@ def sablon_olustur():
         {"DersKodu": "ENF 1805", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1}, 
         {"DersKodu": "İŞL 3907", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
+
+        # Yönetim Bilişim Sistemleri (YBS)
         {"DersKodu": "İŞL 2829", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1}, 
         {"DersKodu": "İŞL 3809", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL_YON", "KidemPuani": 1}, 
         {"DersKodu": "İŞL 2827", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1}, 
@@ -127,6 +136,8 @@ def sablon_olustur():
         {"DersKodu": "İŞL 3001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "İŞL 1835", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
         {"DersKodu": "ATB 1801", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "", "KidemPuani": 1},
+
+        # Uluslararası Ticaret ve Lojistik (UTL)
         {"DersKodu": "İŞL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1}, 
         {"DersKodu": "UTL2005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5},
         {"DersKodu": "UTL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5}, 
