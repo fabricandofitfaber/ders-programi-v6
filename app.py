@@ -5,356 +5,297 @@ import io
 import xlsxwriter
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V15.0", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V16.0", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Dağıtıcı (V15.0 - Kesin Sonuç)")
-st.success("✅ 'Komşu Sınıf' kuralı esnetildi. Program artık matematiksel kilitlenmeye girmeden kesin sonuç üretecek.")
+st.title("🎓 Akademik Ders Programı Dağıtıcı (V16.0 - Bulldozer Modu)")
+st.error("""
+**BU VERSİYON ASLA 'ÇÖZÜM YOK' DEMEZ.**
+Program matematiksel olarak imkansız olsa bile, kuralları (çakışmaları) ihlal ederek size bir çıktı verir.
+Lütfen oluşan programın altındaki **'Çakışma Raporu'nu** inceleyiniz.
+""")
 
 # --- PARAMETRELER ---
-MAX_SURE = 300
-# Puanlar (Negatif değerler ceza, pozitifler ödüldür)
-CEZA_HOCA_CAKISMASI = 1000000   # ASLA OLAMAZ (Fizik kuralı)
-CEZA_SINIF_CAKISMASI = 1000000  # ASLA OLAMAZ (Öğrenci ikiye bölünemez)
-CEZA_KOMSU_SINIF = 1000         # 1. ve 2. sınıf çakışırsa ceza ver (Ama yasaklama!)
-CEZA_GUNLUK_YUK = 500           # Öğrenci günde 3 derse girerse ceza
-CEZA_HOCA_GUN_SAYISI = 1000     # Hoca gereksiz yere okula gelirse ceza
-CEZA_ISTENMEYEN_GUN = 500       # İstenmeyen gün cezası
-CEZA_GUN_BOSLUGU = 1000         # Hoca gün içinde boşluk verirse
-BONUS_ARDISIK_3 = 300
-BONUS_ARDISIK_1ATLAMA = 200
-BONUS_ARDISIK_2ATLAMA = 100
+MAX_SURE = 120            
+DERSLIK_SAYISI = 500       # Kapasite sorunu olmasın diye çok yüksek
 
-# --- TAM ŞABLON (5 BÖLÜM - VERİLER KORUNDU) ---
+# CEZA PUANLARI (Yasaklamak yerine yüksek ceza veriyoruz)
+CEZA_HOCA_CAKISMASI = 100000 
+CEZA_SINIF_CAKISMASI = 100000
+CEZA_OGRENCI_YUKU = 500       
+CEZA_ISTENMEYEN_GUN = 100      
+CEZA_GUN_BOSLUGU = 100
+ODUL_ARDISIK_GUN = 200
+
+# --- ŞABLON OLUŞTURMA ---
 def sablon_olustur():
+    # Sizin paylaştığınız en güncel ve temiz veri seti
     data = [
-        # === TURİZM İŞLETMECİLİĞİ ===
-        {"DersKodu": "TUİ 3011", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2501", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 4539", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2009", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 4533", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "ORT_MARKA", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İKT 1809", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ORD0080", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. A. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "Çarşamba", "ZorunluSaat": "08:30-09:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 1007", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "ORT_GEN_MUH", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 4515", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2001", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 3013", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 1825", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 3009", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2011", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 4005", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2507", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "KAY 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İSG 3901", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. M. G.", "OrtakDersID": "ORT_ISG", "KidemPuani": 1, "ZorunluGun": "Cuma", "ZorunluSaat": "08:30-09:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 2503", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 3509", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "TUİ 4525", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ENF 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1, "ZorunluGun": "Pazartesi", "ZorunluSaat": "15:30-17:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "ATB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB_TUR", "KidemPuani": 1, "ZorunluGun": "Pazartesi", "ZorunluSaat": "08:30-09:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        
-        # === İŞLETME ===
-        {"DersKodu": "İŞL1005", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL3001", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL3003", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL2001", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL2007", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL3515", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "ORT_MARKA", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4001", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4521", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "KAY1805", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL2009", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İKT3905", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ÇEİ4901", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4003", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL2003", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL3005", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İKT2803", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "ORT_MAKRO", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İKT1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "ORT_IKT_GIRIS", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ENF 1805-ISL", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1, "ZorunluGun": "Pazartesi", "ZorunluSaat": "15:30-17:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4523", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL1003", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL1001", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "ORT_ISL_MAT", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL2005", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL3503", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ATB 1801-ISL", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB_ISL", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "15:30-16:40", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        
-        # === EKONOMİ VE FİNANS ===
-        {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 1003", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_MAT_EKF", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 2819", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 1001", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 4001", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 3003", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 2001", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 2005", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 3511", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 4503", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL4911", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "KAY 1805-EKF", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 4507", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 3005", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL1827", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 2009", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 2007", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi Ö. U.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF4505", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 3901", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 3001", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 2003", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "ORT_MAKRO", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "EKF 4003", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ENF 1805-EKF", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "15:30-17:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 3907", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ATB 1801-EKF", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB_EKF", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "13:30-14:40", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-
-        # === YÖNETİM BİLİŞİM SİSTEMLERİ (YBS) ===
-        {"DersKodu": "İŞL 2829", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 3809", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 2827", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 3511", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 2511", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4005", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 2001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 1837", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "KAY 1811", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 3505", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi M. S.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4509", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "ORT_ETICARET", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4515", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İKT 2813", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "ORT_IKT_GIRIS", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 1001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 3003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 2003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Prof. Dr. B. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "YBS 4501", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Prof. Dr. B. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 1833", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 3001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL 1835", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ATB 1801-YBS", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB_YBS", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "13:30-14:40", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-
-        # === ULUSLARARASI TİCARET VE LOJİSTİK (UTL) ===
-        {"DersKodu": "İŞL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2007", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL1001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2011", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "ORT_GEN_MUH", "KidemPuani": 5, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4513", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4515", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "ORT_ETICARET", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "KAY1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK_TEMEL", "KidemPuani": 3, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3519", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4501", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. G. K.", "OrtakDersID": "", "KidemPuani": 1, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ENF1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "15:30-17:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL4517", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Öğr. Gör. M. G.", "OrtakDersID": "ORT_ISG", "KidemPuani": 1, "ZorunluGun": "Cuma", "ZorunluSaat": "08:30-09:15", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
-        {"DersKodu": "İŞL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Prof. Dr. D. A. I.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Prof. Dr. D. A. I.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL3509", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL2009", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "UTL1005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "ORT_ISL_MAT", "KidemPuani": 10, "ZorunluGun": "", "ZorunluSaat": "", "DerslikGerekli": "EVET", "IstenmeyenGun": ""},
-        {"DersKodu": "ATB 1801-UTL", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB_UTL", "KidemPuani": 1, "ZorunluGun": "Salı", "ZorunluSaat": "13:30-14:40", "DerslikGerekli": "HAYIR", "IstenmeyenGun": ""},
+        {"DersKodu": "TUİ 3011", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "TUİ 2501", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "TUİ 4539", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Arş. Gör. Dr. D. Ç.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "TUİ 2009", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 4533", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "ORT_MARKA", "KidemPuani": 5},
+        {"DersKodu": "İKT 1809", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "ORD0080", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. A. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 1007", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "ORT_GEN_MUH", "KidemPuani": 5},
+        {"DersKodu": "TUİ 4515", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 2001", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 3013", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. O. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL 1825", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 3009", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 2011", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Doç. Dr. P. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "TUİ 4005", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "TUİ 2507", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "KAY 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 3},
+        {"DersKodu": "İSG 3901", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Öğr. Gör. M. G.", "OrtakDersID": "ORT_ISG", "KidemPuani": 1},
+        {"DersKodu": "TUİ 2503", "Bolum": "Turizm İşletmeciliği", "Sinif": 2, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "TUİ 3509", "Bolum": "Turizm İşletmeciliği", "Sinif": 3, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "TUİ 4525", "Bolum": "Turizm İşletmeciliği", "Sinif": 4, "HocaAdi": "Prof. Dr. A. Ç. Y.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "ENF 1805", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1},
+        {"DersKodu": "ATB 1801", "Bolum": "Turizm İşletmeciliği", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
+        {"DersKodu": "İŞL1005", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İŞL3001", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İŞL3003", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1},
+        {"DersKodu": "İŞL2001", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1},
+        {"DersKodu": "İŞL2007", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL3515", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Doç. Dr. A. N. K.", "OrtakDersID": "ORT_MARKA", "KidemPuani": 5},
+        {"DersKodu": "İŞL4001", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL4521", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "KAY1805", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL2009", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İKT3905", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "ÇEİ4901", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "İŞL4003", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İŞL2003", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İŞL3005", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. H. C.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İKT2803", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "ORT_MAKRO", "KidemPuani": 1},
+        {"DersKodu": "İKT1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "ORT_IKT_GIRIS", "KidemPuani": 1},
+        {"DersKodu": "ENF 1805", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. F. M. K.", "OrtakDersID": "ORT_BILGISAYAR_1", "KidemPuani": 1},
+        {"DersKodu": "İŞL4523", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL1003", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL1001", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "ORT_ISL_MAT", "KidemPuani": 10},
+        {"DersKodu": "İŞL2005", "Bolum": "İşletme", "Sinif": 2, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL3503", "Bolum": "İşletme", "Sinif": 3, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL4511", "Bolum": "İşletme", "Sinif": 4, "HocaAdi": "Prof. Dr. R. C.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "ATB 1801", "Bolum": "İşletme", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
+        {"DersKodu": "İŞL1829", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1},
+        {"DersKodu": "EKF 1003", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_MAT_EKF", "KidemPuani": 1},
+        {"DersKodu": "İŞL 2819", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK", "KidemPuani": 1},
+        {"DersKodu": "EKF 1001", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5},
+        {"DersKodu": "EKF 4001", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "EKF 3003", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "EKF 2001", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Doç. Dr. A. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "EKF 2005", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "EKF 3511", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "EKF 4503", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. C. O.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL4911", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Doç. Dr. F. Ç.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "KAY 1805", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 5},
+        {"DersKodu": "EKF 4507", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "EKF 3005", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "İŞL1827", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Dr. Öğr. Üyesi C. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "EKF 2009", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi M. A. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "EKF 2007", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Dr. Öğr. Üyesi Ö. U.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "EKF4505", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "İŞL 3901", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "EKF 3001", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "EKF 2003", "Bolum": "Ekonomi ve Finans", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. N. Ü.", "OrtakDersID": "ORT_MAKRO", "KidemPuani": 1},
+        {"DersKodu": "EKF 4003", "Bolum": "Ekonomi ve Finans", "Sinif": 4, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "ENF 1805", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1},
+        {"DersKodu": "İŞL 3907", "Bolum": "Ekonomi ve Finans", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "ATB 1801", "Bolum": "Ekonomi ve Finans", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
+        {"DersKodu": "İŞL 2829", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. E. K.", "OrtakDersID": "ORT_FIN_MUH", "KidemPuani": 1},
+        {"DersKodu": "İŞL 3809", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_SAYISAL", "KidemPuani": 1},
+        {"DersKodu": "İŞL 2827", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1},
+        {"DersKodu": "YBS 3511", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "YBS 4001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "YBS 2511", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "YBS 4005", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. İ.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "YBS 2001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "YBS 4003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "İŞL 1837", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Doç. Dr. M. D.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "KAY 1811", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Doç. Dr. N. K.", "OrtakDersID": "ORT_HUKUK", "KidemPuani": 5},
+        {"DersKodu": "YBS 3505", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi M. S.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "YBS 4509", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "ORT_ETICARET", "KidemPuani": 3},
+        {"DersKodu": "YBS 4515", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "İKT 2813", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Öğr. Gör. Dr. Y. N.", "OrtakDersID": "ORT_IKT_GIRIS", "KidemPuani": 1},
+        {"DersKodu": "YBS 1001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "YBS 3003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "YBS 2003", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "HocaAdi": "Prof. Dr. B. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "YBS 4501", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "HocaAdi": "Prof. Dr. B. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL 1833", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL 3001", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "İŞL 1835", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Prof. Dr. M. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "ATB 1801", "Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
+        {"DersKodu": "İŞL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Arş. Gör. Dr. G. Ç.", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL", "KidemPuani": 1},
+        {"DersKodu": "UTL2005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. A. R. A.", "OrtakDersID": "ORT_EKONOMI_1", "KidemPuani": 5},
+        {"DersKodu": "UTL2007", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL1001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL2001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. E. E. Y.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL3001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL4001", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "", "KidemPuani": 5},
+        {"DersKodu": "UTL2011", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Doç. Dr. H. K.", "OrtakDersID": "ORT_GEN_MUH", "KidemPuani": 5},
+        {"DersKodu": "UTL4513", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi A. O. Ö.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "UTL4003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "UTL3503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "UTL4515", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Dr. Öğr. Üyesi R. A.", "OrtakDersID": "ORT_ETICARET", "KidemPuani": 3},
+        {"DersKodu": "UTL2503", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "", "KidemPuani": 3},
+        {"DersKodu": "KAY1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Dr.Öğr.Üyesi S. Y. C.", "OrtakDersID": "ORT_HUKUK_TEMEL", "KidemPuani": 3},
+        {"DersKodu": "UTL3519", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "UTL4501", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Öğr. Gör. C. G.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "UTL3005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Öğr. Gör. Dr. G. K.", "OrtakDersID": "", "KidemPuani": 1},
+        {"DersKodu": "ENF1805", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. İ. B.", "OrtakDersID": "ORT_BILGISAYAR_2", "KidemPuani": 1},
+        {"DersKodu": "UTL4517", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "HocaAdi": "Öğr. Gör. M. G.", "OrtakDersID": "ORT_ISG", "KidemPuani": 1},
+        {"DersKodu": "İŞL1003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Prof. Dr. A. E. A.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "UTL3003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Prof. Dr. D. A. I.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "UTL2003", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Prof. Dr. D. A. I.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "UTL3509", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "UTL2009", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "HocaAdi": "Prof. Dr. F. Ş.", "OrtakDersID": "", "KidemPuani": 10},
+        {"DersKodu": "UTL1005", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Prof. Dr. İ. K.", "OrtakDersID": "ORT_ISL_MAT", "KidemPuani": 10},
+        {"DersKodu": "ATB 1801", "Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "HocaAdi": "Öğr. Gör. N. K.", "OrtakDersID": "ORT_ATB", "KidemPuani": 1},
     ]
-    
+
     df = pd.DataFrame(data)
-    
+    df['IstenmeyenGun'] = ""
+    df['ZorunluGun'] = ""
+    df['ZorunluSeans'] = ""
+
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name='Dersler')
     
     worksheet = writer.book.add_worksheet('Aciklamalar')
     aciklamalar = [
-        "1. KISITLAR:",
-        "   - Hoca çakışması KESİNLİKLE yasak",
-        "   - Komşu sınıflar çakışırsa CEZA puanı alır (ama program bulunur)",
-        "   - Hoca günde max 1 ders verir (esnetilebilir)",
-        "   - Öğrenci günde max 2 seans alır (3 olursa ceza)"
+        "BU DOSYA MEVCUT DERS YÜKLERİNİ İÇERİR.",
+        "ÖNEMLİ: ORTAK ID'leri silmeyiniz!",
+        "1. İstenmeyen Gün: Hocanın gelmek istemediği günleri virgülle yazın."
     ]
     for i, satir in enumerate(aciklamalar):
         worksheet.write(i, 0, satir)
+    
     writer.close()
     return output.getvalue()
 
 # --- ÇÖZÜM MOTORU ---
 def programi_coz(df_veri):
     model = cp_model.CpModel()
-    gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
-    seanslar = ['Sabah', 'Öğle', 'ÖğledenSonra']
-    
-    # Veri temizleme
-    df_veri['HocaAdi'] = df_veri['HocaAdi'].astype(str).str.strip()
-    df_veri['DersKodu'] = df_veri['DersKodu'].astype(str).str.strip()
-    df_veri['Bolum'] = df_veri['Bolum'].astype(str).str.strip()
-    if 'KidemPuani' not in df_veri.columns:
-        df_veri['KidemPuani'] = 1
-    df_veri['KidemPuani'] = df_veri['KidemPuani'].fillna(1).astype(int)
-    
+    gunler = ['Pazartesi', 'Sali', 'Carsamba', 'Persembe', 'Cuma']
+    seanslar = ['Sabah', 'Ogle', 'OgledenSonra']
+
     tum_dersler = []
     ders_detaylari = {}
     hoca_dersleri = {}
-    hoca_tercihleri = {}
+    hoca_tercihleri = {} 
     ortak_ders_gruplari = {}
+
+    df_veri['HocaAdi'] = df_veri['HocaAdi'].astype(str).str.strip()
+    df_veri['DersKodu'] = df_veri['DersKodu'].astype(str).str.strip()
     
-    for index, row in df_veri.iterrows():
-        d_id = row['DersKodu']
-        hoca = row['HocaAdi']
-        bolum = row['Bolum']
-        sinif = int(row['Sinif'])
-        ortak_id = row['OrtakDersID'] if pd.notna(row['OrtakDersID']) and str(row['OrtakDersID']).strip() else None
-        
-        zg = None
-        zs = None
-        if pd.notna(row.get('ZorunluGun')) and str(row['ZorunluGun']).strip() in gunler:
-            zg = str(row['ZorunluGun']).strip()
-        
-        if pd.notna(row.get('ZorunluSaat')) and str(row['ZorunluSaat']).strip():
-            zaman = str(row['ZorunluSaat']).strip()
-            if '08:' in zaman or '09:' in zaman or '10:' in zaman:
-                zs = 'Sabah'
-            elif '11:' in zaman or '12:' in zaman or '13:' in zaman or '14:' in zaman:
-                zs = 'Öğle'
-            else:
-                zs = 'ÖğledenSonra'
-        
-        tum_dersler.append(d_id)
-        ders_detaylari[d_id] = {
-            'bolum': bolum, 'sinif': sinif, 'hoca': hoca,
-            'ortak_id': ortak_id, 'zorunlu_gun': zg, 'zorunlu_seans': zs
-        }
-        
-        if hoca not in hoca_dersleri: hoca_dersleri[hoca] = []
-        hoca_dersleri[hoca].append(d_id)
-        
-        if ortak_id:
-            if ortak_id not in ortak_ders_gruplari: ortak_ders_gruplari[ortak_id] = []
-            ortak_ders_gruplari[ortak_id].append(d_id)
-    
-    # Hoca tercihleri
-    for hoca in hoca_dersleri.keys():
+    if 'KidemPuani' not in df_veri.columns: df_veri['KidemPuani'] = 1
+    df_veri['KidemPuani'] = df_veri['KidemPuani'].fillna(1).astype(int)
+
+    hoca_listesi = df_veri['HocaAdi'].dropna().unique().tolist()
+
+    for hoca in hoca_listesi:
         ornek_satir = df_veri[df_veri['HocaAdi'] == hoca].iloc[0]
-        raw_gunler = str(ornek_satir['IstenmeyenGun']) if pd.notna(ornek_satir.get('IstenmeyenGun')) else ""
+        raw_gunler = str(ornek_satir['IstenmeyenGun']) if pd.notna(ornek_satir['IstenmeyenGun']) else ""
         istenmeyen_list = [g.strip() for g in raw_gunler.split(',') if g.strip() in gunler]
         kidem = int(ornek_satir['KidemPuani'])
         hoca_tercihleri[hoca] = {'istenmeyen': istenmeyen_list, 'kidem': kidem}
-    
+        hoca_dersleri[hoca] = []
+
+    for index, row in df_veri.iterrows():
+        d_id = row['DersKodu']
+        hoca = row['HocaAdi']
+        ortak_id = row['OrtakDersID'] if pd.notna(row['OrtakDersID']) else None
+        zg = row['ZorunluGun'] if pd.notna(row['ZorunluGun']) and row['ZorunluGun'] in gunler else None
+        zs = row['ZorunluSeans'] if pd.notna(row['ZorunluSeans']) and row['ZorunluSeans'] in seanslar else None
+
+        tum_dersler.append(d_id)
+        ders_detaylari[d_id] = {'bolum': row['Bolum'], 'sinif': row['Sinif'], 'hoca': hoca,
+                                'ortak_id': ortak_id, 'zorunlu_gun': zg, 'zorunlu_seans': zs}
+        hoca_dersleri[hoca].append(d_id)
+        if ortak_id:
+            if ortak_id not in ortak_ders_gruplari: ortak_ders_gruplari[ortak_id] = []
+            ortak_ders_gruplari[ortak_id].append(d_id)
+
     program = {}
     for d in tum_dersler:
         for g in gunler:
             for s in seanslar:
                 program[(d, g, s)] = model.NewBoolVar(f'{d}_{g}_{s}')
-    
+
     hoca_gun_aktif = {}
-    for h in hoca_dersleri.keys():
+    for h in hoca_listesi:
         for g_idx, g in enumerate(gunler):
-            hoca_gun_aktif[(h, g_idx)] = model.NewBoolVar(f'hoca_gun_{h}_{g_idx}')
+            hoca_gun_aktif[(h, g_idx)] = model.NewBoolVar(f'{h}_{g}')
+
+    # --- KISITLAR (HEPSİ CEZALI - ASLA KİLİTLENMEZ) ---
     
-    # --- KISITLAR ---
-    # 1. Her ders 1 kere
+    # 1. Her ders 1 kere (KESİN)
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
-    
-    # 2. Hoca Çakışması (KESİN)
-    for h in hoca_dersleri.keys():
+
+    puanlar = []
+
+    # 2. Hoca Çakışması (CEZALI)
+    for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
-        unique_ders = []
-        islenen_ortak = set()
+        unique_ders_temsilcileri = []
+        islenen_ortak_idler = set()
         for d in dersleri:
             oid = ders_detaylari[d]['ortak_id']
             if oid:
-                if oid not in islenen_ortak:
-                    unique_ders.append(d)
-                    islenen_ortak.add(oid)
+                if oid not in islenen_ortak_idler:
+                    unique_ders_temsilcileri.append(d)
+                    islenen_ortak_idler.add(oid)
             else:
-                unique_ders.append(d)
+                unique_ders_temsilcileri.append(d)
+        
         for g in gunler:
             for s in seanslar:
-                model.Add(sum(program[(d, g, s)] for d in unique_ders) <= 1)
-    
-    # 3. Sınıf Çakışması (KESİN)
+                conflict = model.NewBoolVar(f'hoca_conflict_{h}_{g}_{s}')
+                total_ders = sum(program[(d, g, s)] for d in unique_ders_temsilcileri)
+                
+                model.Add(total_ders > 1).OnlyEnforceIf(conflict)
+                model.Add(total_ders <= 1).OnlyEnforceIf(conflict.Not())
+                puanlar.append(conflict * -CEZA_HOCA_CAKISMASI)
+
+    # 3. Bölüm/Sınıf Çakışması (CEZALI)
     bolumler = df_veri['Bolum'].unique()
     siniflar = sorted(df_veri['Sinif'].unique())
-    for b in bolumler:
-        for sin in siniflar:
-            ilgili = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
-            if ilgili:
-                for g in gunler:
-                    for s in seanslar:
-                        model.Add(sum(program[(d, g, s)] for d in ilgili) <= 1)
     
-    # 4. Komşu Sınıf Çakışması (SOFT - CEZALI)
-    # Burada kesin yasak yerine ceza puanı kullanıyoruz ki program kilitlenmesin
-    puanlar = []
-    for b in bolumler:
-        for sin in siniflar:
-            if sin < 4:
-                sin_next = sin + 1
-                ilgili_sin = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
-                ilgili_next = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin_next]
-                if ilgili_sin and ilgili_next:
-                    for g in gunler:
-                        for s in seanslar:
-                            conflict = model.NewBoolVar(f'komsu_conflict_{b}_{sin}_{g}_{s}')
-                            sin_aktif = model.NewBoolVar(f'sin_aktif_{b}_{sin}_{g}_{s}')
-                            next_aktif = model.NewBoolVar(f'next_aktif_{b}_{sin_next}_{g}_{s}')
-                            
-                            model.Add(sum(program[(d, g, s)] for d in ilgili_sin) > 0).OnlyEnforceIf(sin_aktif)
-                            model.Add(sum(program[(d, g, s)] for d in ilgili_sin) == 0).OnlyEnforceIf(sin_aktif.Not())
-                            
-                            model.Add(sum(program[(d, g, s)] for d in ilgili_next) > 0).OnlyEnforceIf(next_aktif)
-                            model.Add(sum(program[(d, g, s)] for d in ilgili_next) == 0).OnlyEnforceIf(next_aktif.Not())
-                            
-                            model.AddBoolAnd([sin_aktif, next_aktif]).OnlyEnforceIf(conflict)
-                            # Burada conflict==0 demiyoruz, ceza puanı veriyoruz
-                            puanlar.append(conflict * -CEZA_KOMSU_SINIF)
-
-    # 5. Öğrenci Günlük Yük (SOFT - Max 2)
     for b in bolumler:
         for sin in siniflar:
             ilgili = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
             if ilgili:
                 for g in gunler:
+                    # Aynı saatte çakışma (Cezalı)
+                    for s in seanslar:
+                        s_conflict = model.NewBoolVar(f'sinif_conflict_{b}_{sin}_{g}_{s}')
+                        s_total = sum(program[(d, g, s)] for d in ilgili)
+                        model.Add(s_total > 1).OnlyEnforceIf(s_conflict)
+                        model.Add(s_total <= 1).OnlyEnforceIf(s_conflict.Not())
+                        puanlar.append(s_conflict * -CEZA_SINIF_CAKISMASI)
+                    
+                    # Günlük yük (Soft)
                     gunluk_toplam = sum(program[(d, g, s)] for d in ilgili for s in seanslar)
                     overload = model.NewBoolVar(f'overload_{b}_{sin}_{g}')
                     model.Add(gunluk_toplam > 2).OnlyEnforceIf(overload)
                     model.Add(gunluk_toplam <= 2).OnlyEnforceIf(overload.Not())
-                    puanlar.append(overload * -CEZA_GUNLUK_YUK)
+                    puanlar.append(overload * -CEZA_OGRENCI_YUKU)
 
-    # 6. Hoca Günde Max 1 Ders (KESİN)
-    # Bunu esnetebiliriz isterseniz ama şimdilik kesin kalsın
-    for h in hoca_dersleri.keys():
-        dersleri = hoca_dersleri[h]
-        unique_ders = []
-        islenen_ortak = set()
-        for d in dersleri:
-            oid = ders_detaylari[d]['ortak_id']
-            if oid:
-                if oid not in islenen_ortak:
-                    unique_ders.append(d)
-                    islenen_ortak.add(oid)
-            else:
-                unique_ders.append(d)
-        for g in gunler:
-            gunluk = sum(program[(d, g, s)] for d in unique_ders for s in seanslar)
-            model.Add(gunluk <= 1)
-
-    # 7. Ortak Ders Senkronizasyonu
+    # 4. Ortak Ders Senkronizasyonu (KESİN)
     for o_id, d_list in ortak_ders_gruplari.items():
         if len(d_list) > 1:
             ref = d_list[0]
             for diger in d_list[1:]:
                 for g in gunler:
-                    for s in seanslar:
-                        model.Add(program[(ref, g, s)] == program[(diger, g, s)])
-
-    # 8. Zorunlu Gün/Seans
+                    for s in seanslar: model.Add(program[(ref, g, s)] == program[(diger, g, s)])
+    
+    # 5. Zorunlu Gün (KESİN)
     for d in tum_dersler:
-        zg = ders_detaylari[d]['zorunlu_gun']
-        zs = ders_detaylari[d]['zorunlu_seans']
+        zg, zs = ders_detaylari[d]['zorunlu_gun'], ders_detaylari[d]['zorunlu_seans']
         if zg:
             for g in gunler:
                 if g != zg:
@@ -364,183 +305,144 @@ def programi_coz(df_veri):
                 if s != zs:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 9. Hoca Gün Sayısı Kontrolü (SOFT)
-    for h in hoca_dersleri.keys():
+    # 6. Kapasite (Yüksek)
+    for g in gunler:
+        for s in seanslar: model.Add(sum(program[(d, g, s)] for d in tum_dersler) <= DERSLIK_SAYISI)
+
+    # --- OBJEKTİF ---
+    for h in hoca_listesi:
         dersleri = hoca_dersleri[h]
-        unique_ders = []
-        islenen_ortak = set()
+        unique_d = []
+        seen_o = set()
         for d in dersleri:
             oid = ders_detaylari[d]['ortak_id']
             if oid:
-                if oid not in islenen_ortak:
-                    unique_ders.append(d)
-                    islenen_ortak.add(oid)
-            else:
-                unique_ders.append(d)
-        ders_sayisi = len(unique_ders)
-        
+                if oid not in seen_o: unique_d.append(d); seen_o.add(oid)
+            else: unique_d.append(d)
+
+        kidem = hoca_tercihleri[h]['kidem'] 
+        istenmeyenler = hoca_tercihleri[h]['istenmeyen']
+
         for g_idx, g in enumerate(gunler):
-            g_toplam = sum(program[(d, g, s)] for d in unique_ders for s in seanslar)
+            g_toplam = sum(program[(d, g, s)] for d in unique_d for s in seanslar)
             model.Add(g_toplam > 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)])
             model.Add(g_toplam == 0).OnlyEnforceIf(hoca_gun_aktif[(h, g_idx)].Not())
-        
-        toplam_aktif_gun = sum(hoca_gun_aktif[(h, g_idx)] for g_idx in range(5))
-        gun_fark = model.NewIntVar(-10, 10, f'gun_fark_{h}')
-        model.Add(gun_fark == toplam_aktif_gun - ders_sayisi)
-        gun_fark_abs = model.NewIntVar(0, 10, f'gun_fark_abs_{h}')
-        model.AddAbsEquality(gun_fark_abs, gun_fark)
-        puanlar.append(gun_fark_abs * -CEZA_HOCA_GUN_SAYISI)
-
-    # --- OPTİMİZASYON ---
-    for h in hoca_dersleri.keys():
-        kidem = hoca_tercihleri[h]['kidem']
-        istenmeyen = hoca_tercihleri[h]['istenmeyen']
-        
-        for g_idx, g in enumerate(gunler):
-            if g in istenmeyen:
+            if g in istenmeyenler:
                 puanlar.append(hoca_gun_aktif[(h, g_idx)] * -CEZA_ISTENMEYEN_GUN * kidem)
-        
-        # Ardışık 3 gün
+
+        for g_idx in range(4):
+            ard = model.NewBoolVar(f'ard_{h}_{g_idx}')
+            model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)]]).OnlyEnforceIf(ard)
+            puanlar.append(ard * ODUL_ARDISIK_BAZ * kidem)
+
         for g_idx in range(3):
-            ard3 = model.NewBoolVar(f'ard3_{h}_{g_idx}')
-            model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)], hoca_gun_aktif[(h, g_idx+2)]]).OnlyEnforceIf(ard3)
-            puanlar.append(ard3 * BONUS_ARDISIK_3 * kidem)
-        
-        # Hoca gün boşluğu cezası (YENİ EKLENEN KISIM)
-        for g_idx in range(3): 
-             bosluk_var = model.NewBoolVar(f'bosluk_{h}_{g_idx}')
-             model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)].Not(), hoca_gun_aktif[(h, g_idx+2)]]).OnlyEnforceIf(bosluk_var)
-             puanlar.append(bosluk_var * -CEZA_GUN_BOSLUGU * kidem)
+            bosluk_var = model.NewBoolVar(f'gap_{h}_{g_idx}')
+            model.AddBoolAnd([hoca_gun_aktif[(h, g_idx)], hoca_gun_aktif[(h, g_idx+1)].Not(), hoca_gun_aktif[(h, g_idx+2)]]).OnlyEnforceIf(bosluk_var)
+            puanlar.append(bosluk_var * -CEZA_GUN_BOSLUGU * kidem)
 
     model.Maximize(sum(puanlar))
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = MAX_SURE
-    solver.parameters.num_search_workers = 8
     status = solver.Solve(model)
-    return status, solver, program, tum_dersler, ders_detaylari, gunler, seanslar
+    return status, solver, program, tum_dersler, ders_detaylari, hoca_gun_aktif
 
 # --- ARAYÜZ ---
-st.markdown("---")
 col1, col2 = st.columns([1, 2])
-
 with col1:
-    st.info("### 📥 Şablon İndir")
-    st.write("Tüm dersleri içeren örnek şablonu indirin:")
+    st.info("Kullanmaya başlamadan önce şablonu indirin:")
     st.download_button(
-        label="📥 Örnek Şablon İndir (Tüm Dersler)",
+        label="📥 Güncel Ders Yükünü İndir (V16.0)",
         data=sablon_olustur(),
-        file_name="Ders_Programi_Sablon_v2_2.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+        file_name="Ders_Yukleri_Guncel_V16.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-with col2:
-    st.info("### 📤 Dosya Yükle")
-    uploaded_file = st.file_uploader("Excel dosyanızı yükleyin", type=['xlsx'], help="Şablonu doldurup yükleyin")
+uploaded_file = st.file_uploader("Dosyayı Yükleyin", type=['xlsx'])
 
 if uploaded_file is not None:
-    st.markdown("---")
-    if st.button("🚀 Programı Oluştur", type="primary", use_container_width=True):
-        with st.spinner('Program oluşturuluyor... (5 dakikaya kadar sürebilir)'):
+    if st.button("Programı Dağıt"):
+        with st.spinner('Program zorla oluşturuluyor... (Kurallar ihlal edilebilir)'):
             try:
                 df_input = pd.read_excel(uploaded_file)
-                status, solver, program, tum_dersler, ders_detaylari, gunler, seanslar = programi_coz(df_input)
-                
-                if status == cp_model.OPTIMAL:
-                    st.success(f"✅ OPTIMAL PROGRAM OLUŞTURULDU! (Skor: {solver.ObjectiveValue():.0f})")
-                elif status == cp_model.FEASIBLE:
-                    st.warning(f"⚠️ Uygun program bulundu (Skor: {solver.ObjectiveValue():.0f}) - Daha iyisi olabilir")
-                else:
-                    st.error("❌ Program oluşturulamadı! Kısıtlar çok sıkı olabilir.")
-                    st.stop()
-                
-                # Çakışma raporu
-                st.subheader("🔍 Çakışma Raporu")
-                hoca_listesi = df_input['HocaAdi'].dropna().unique().tolist()
-                cakisma_var = False
-                for h in hoca_listesi:
-                    for g in gunler:
-                        for s in seanslar:
-                            dersler_burada = []
-                            for d in tum_dersler:
-                                if ders_detaylari[d]['hoca'] == h and solver.Value(program[(d, g, s)]) == 1:
-                                    oid = ders_detaylari[d]['ortak_id']
-                                    if not oid or (oid and d not in [x[0] for x in dersler_burada if x[1]]):
-                                        dersler_burada.append((d, oid))
-                            unique_count = len(set([x[1] if x[1] else x[0] for x in dersler_burada]))
-                            if unique_count > 1:
-                                st.error(f"HOCA ÇAKIŞMASI: {h} → {g} {s}: {unique_count} ders!")
-                                cakisma_var = True
-                
-                if not cakisma_var:
-                    st.success("✅ Hoca çakışması yok!")
-                
-                # Excel oluştur
-                output = io.BytesIO()
-                writer = pd.ExcelWriter(output, engine='xlsxwriter')
-                bolumler = df_input['Bolum'].unique()
-                siniflar = sorted(df_input['Sinif'].unique())
-                
-                for bolum in bolumler:
-                    index_list = pd.MultiIndex.from_product([gunler, seanslar], names=['Gün', 'Seans'])
-                    df_matrix = pd.DataFrame(index=index_list, columns=siniflar)
-                    for d in tum_dersler:
-                        detay = ders_detaylari[d]
-                        if detay['bolum'] == bolum:
-                            for g in gunler:
-                                for s in seanslar:
-                                    if solver.Value(program[(d, g, s)]) == 1:
-                                        mevcut = str(df_matrix.at[(g, s), detay['sinif']])
-                                        yeni = f"{d}\n{detay['hoca']}"
-                                        if detay['ortak_id']:
-                                            yeni += f"\n(Ortak: {detay['ortak_id']})"
-                                        if mevcut != "nan":
-                                            df_matrix.at[(g, s), detay['sinif']] = mevcut + "\n---\n" + yeni
-                                        else:
-                                            df_matrix.at[(g, s), detay['sinif']] = yeni
+                status, solver, program, tum_dersler, ders_detaylari, hoca_gun_aktif = programi_coz(df_input)
+
+                if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+                    st.success(f"✅ Program Oluşturuldu! (Skor: {solver.ObjectiveValue()})")
                     
-                    sheet_name = str(bolum)[:30]
-                    df_matrix.to_excel(writer, sheet_name=sheet_name)
-                    workbook = writer.book
-                    worksheet = writer.sheets[sheet_name]
-                    wrap_format = workbook.add_format({'text_wrap': True, 'valign': 'top', 'border': 1})
-                    worksheet.set_column('A:B', 15)
-                    worksheet.set_column('C:Z', 30, wrap_format)
-                    for row_num in range(1, len(df_matrix) + 2):
-                        worksheet.set_row(row_num, 60)
-                
-                writer.close()
-                processed_data = output.getvalue()
-                
-                st.download_button(
-                    label="📥 Programı İndir (Excel)",
-                    data=processed_data,
-                    file_name="Haftalik_Program_v2.2.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-                
-                # Görsel önizleme
-                st.subheader("📊 Program Önizleme (İlk Bölüm)")
-                preview_bolum = bolumler[0]
-                index_list = pd.MultiIndex.from_product([gunler, seanslar], names=['Gün', 'Seans'])
-                df_preview = pd.DataFrame(index=index_list, columns=siniflar)
-                
-                for d in tum_dersler:
-                    detay = ders_detaylari[d]
-                    if detay['bolum'] == preview_bolum:
+                    st.subheader("⚠️ Çakışma ve İhlal Raporu")
+                    gunler = ['Pazartesi', 'Sali', 'Carsamba', 'Persembe', 'Cuma']
+                    seanslar = ['Sabah', 'Ogle', 'OgledenSonra']
+                    hoca_listesi = df_input['HocaAdi'].dropna().unique().tolist()
+                    
+                    # Çakışma Kontrolü
+                    for h in hoca_listesi:
                         for g in gunler:
                             for s in seanslar:
-                                if solver.Value(program[(d, g, s)]) == 1:
-                                    mevcut = str(df_preview.at[(g, s), detay['sinif']])
-                                    yeni = f"{d} - {detay['hoca']}"
-                                    if mevcut != "nan":
-                                        df_preview.at[(g, s), detay['sinif']] = mevcut + " | " + yeni
+                                dersler_burada = []
+                                for d in tum_dersler:
+                                    if ders_detaylari[d]['hoca'] == h and solver.Value(program[(d, g, s)]) == 1:
+                                        oid = ders_detaylari[d]['ortak_id']
+                                        if not oid or (oid and d not in [x[0] for x in dersler_burada if x[1]]): 
+                                            dersler_burada.append((d, oid))
+                                
+                                count = 0
+                                unique_oids = set()
+                                for d_code, d_oid in dersler_burada:
+                                    if d_oid:
+                                        if d_oid not in unique_oids:
+                                            unique_oids.add(d_oid)
+                                            count += 1
                                     else:
-                                        df_preview.at[(g, s), detay['sinif']] = yeni
-                
-                st.dataframe(df_preview, use_container_width=True, height=600)
-                
+                                        count += 1
+                                
+                                if count > 1:
+                                    st.error(f"HOCA ÇAKIŞMASI: {h} -> {g} {s}: {count} ders aynı anda!")
+
+                    # --- EXCEL ÇIKTISI ---
+                    output = io.BytesIO()
+                    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+                    
+                    bolumler = df_input['Bolum'].unique()
+                    siniflar = sorted(df_input['Sinif'].unique())
+                    
+                    for bolum in bolumler:
+                        index_list = pd.MultiIndex.from_product([gunler, seanslar], names=['Gün', 'Seans'])
+                        df_matrix = pd.DataFrame(index=index_list, columns=siniflar)
+                        
+                        for d in tum_dersler:
+                            detay = ders_detaylari[d]
+                            if detay['bolum'] == bolum:
+                                for g in gunler:
+                                    for s in seanslar:
+                                        if solver.Value(program[(d, g, s)]) == 1:
+                                            mevcut_icerik = str(df_matrix.at[(g, s), detay['sinif']])
+                                            yeni_icerik = f"{d}\n{detay['hoca']}"
+                                            if detay['ortak_id']: yeni_icerik += f"\n(Ort: {detay['ortak_id']})"
+                                            
+                                            if mevcut_icerik != "nan":
+                                                df_matrix.at[(g, s), detay['sinif']] = mevcut_icerik + "\n-----\n" + yeni_icerik
+                                            else:
+                                                df_matrix.at[(g, s), detay['sinif']] = yeni_icerik
+                        
+                        sheet_name = str(bolum)[:30]
+                        df_matrix.to_excel(writer, sheet_name=sheet_name)
+                        workbook = writer.book
+                        worksheet = writer.sheets[sheet_name]
+                        wrap_format = workbook.add_format({'text_wrap': True, 'valign': 'top'})
+                        worksheet.set_column('A:B', 15)
+                        worksheet.set_column('C:F', 25, wrap_format)
+
+                    writer.close()
+                    processed_data = output.getvalue()
+                    
+                    st.download_button(
+                        label="📥 Haftalık Programı İndir",
+                        data=processed_data,
+                        file_name="Final_Program_V16.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    
+                else:
+                    st.error("❌ Beklenmedik durum.")
             except Exception as e:
-                st.error(f"❌ Hata oluştu: {str(e)}")
-                st.exception(e)
+                st.error(f"Hata: {e}")
