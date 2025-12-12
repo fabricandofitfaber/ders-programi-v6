@@ -19,7 +19,7 @@ st.info("""
 # --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Performans Ayarları")
-    MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 10, 100, 50) # Varsayılanı arttırdım
+    MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 10, 100, 5000) # Varsayılanı arttırdım
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=20.0) # Süreyi arttırdım
 
 # --- 1. VERİ SETİ ---
