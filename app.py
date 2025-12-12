@@ -4,27 +4,51 @@ from ortools.sat.python import cp_model
 import io
 import xlsxwriter
 import random
+import re
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V30.0 (Kesin Yayılım)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V31.0 (Final Identity Fix)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı (V30.0 - Tavizsiz Yayılım Modu)")
-st.error("""
-**KESİN KURAL (HARD CONSTRAINT):**
-Bu versiyonda hocanın okula kaç gün geleceği, ders yüküne göre **sabitlenmiştir**.
-* 1 Ders = 1 Gün
-* 2 Ders = 2 Gün
-* 3 Ders = 3 Gün
-* 4 Ders = 3 Gün (2+1+1) -> 2 Gün (2+2) ASLA YAPILAMAZ.
-* 5+ Ders = 3 Gün
-*Not: Ortak dersler tek yük sayılır.*
+st.title("🎓 Akademik Ders Programı (V31.0 - Kimlik Birleştirme Modu)")
+st.success("""
+**ÇÖZÜLEN SORUN:** Farklı yazılan isimler (Örn: 'Doç.Dr. Ali' vs 'Doç. Dr. Ali') artık **TEK KİŞİ** sayılıyor.
+**SONUÇ:** Ali Naci Hoca gibi farklı bölümlerde dersi olanların yükü doğru toplanıyor ve 3 güne yayılma kuralı hatasız çalışıyor.
 """)
+
+# --- YARDIMCI FONKSİYON: İSİM NORMALLEŞTİRME ---
+def normalize_name(raw_name):
+    """
+    İsimleri unvanlardan, noktalardan ve fazla boşluklardan arındırıp standart hale getirir.
+    Örn: "Doç. Dr.  Ali   Veli " -> "ALI VELI"
+    """
+    if not isinstance(raw_name, str):
+        return "BILINMEYEN"
+    
+    # 1. Türkçe karakter düzeltme (Büyük harfe çevirirken I/İ sorunu için)
+    rep = {"ğ": "G", "Ğ": "G", "ü": "U", "Ü": "U", "ş": "S", "Ş": "S", "ı": "I", "İ": "I", "ö": "O", "Ö": "O", "ç": "C", "Ç": "C"}
+    text = raw_name
+    for k, v in rep.items():
+        text = text.replace(k, v)
+    text = text.upper()
+    
+    # 2. Unvanları temizle
+    unvanlar = ["PROF.", "DOC.", "DR.", "ARS.", "GOR.", "OGR.", "UYESI", "YRD.", "DOC", "PROF", "DR"]
+    for unv in unvanlar:
+        text = text.replace(unv, "")
+    
+    # 3. Noktalama işaretlerini kaldır
+    text = re.sub(r'[^\w\s]', '', text)
+    
+    # 4. Fazla boşlukları tek boşluğa indir ve kenarları kırp
+    text = " ".join(text.split())
+    
+    return text
 
 # --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
-    MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme", 100, 5000, 1000)
-    HER_DENEME_SURESI = st.number_input("Her Deneme Süresi (sn)", value=25.0)
+    MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme", 100, 5000, 2000)
+    HER_DENEME_SURESI = st.number_input("Her Deneme Süresi (sn)", value=30.0)
 
 # --- 1. VERİ ŞABLONU ---
 def temiz_veri_sablonu():
@@ -187,45 +211,53 @@ def temiz_veri_sablonu():
     writer.close()
     return output.getvalue()
 
-# --- 2. ANA ÇÖZÜCÜ (V30.0 MANTIK) ---
+# --- 2. ANA ÇÖZÜCÜ (V31 Logic - Normalization) ---
 def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
     model = cp_model.CpModel()
     
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
     seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
     
-    # --- VERİ HAZIRLIĞI ---
     tum_dersler = []
     ders_detaylari = {}
     hoca_dersleri = {}
     bolum_sinif_dersleri = {} 
     ortak_ders_gruplari = {}
-    
-    # 1. HOCA NET YÜK HESAPLAMA (Ortak Dersler = 1 Yük)
-    unique_load_tracker = {} # {Hoca: Set(OID)}
+    hoca_yukleri = {}
     hoca_bilgileri = {}
 
+    # 1. HOCA NET YÜK HESAPLAMA (Normalize Edilmiş İsimlerle)
+    unique_load_tracker = {} # {NormalizedHoca: Set(OID)}
+
     for index, row in df_veri.iterrows():
-        hoca = str(row['HocaAdi']).strip()
+        # BURADA NORMALİZASYON DEVREDE
+        raw_hoca = str(row['HocaAdi']).strip()
+        hoca = normalize_name(raw_hoca) # <--- CRITICAL FIX
+        
         oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
         
         unvan = str(row['Unvan']).strip() if 'Unvan' in df_veri.columns and pd.notna(row['Unvan']) else "OgrGor"
         istek = str(row['OzelIstek']).strip() if 'OzelIstek' in df_veri.columns and pd.notna(row['OzelIstek']) else ""
-        hoca_bilgileri[hoca] = {'unvan': unvan, 'istek': istek}
+        
+        # Bilgileri kaydet
+        hoca_bilgileri[hoca] = {'unvan': unvan, 'istek': istek, 'real_name': raw_hoca}
 
         if hoca not in unique_load_tracker: unique_load_tracker[hoca] = set()
         
         if oid:
-            unique_load_tracker[hoca].add(oid) # Ortak dersler tek sayılır
+            unique_load_tracker[hoca].add(oid)
         else:
             unique_load_tracker[hoca].add(f"UNIQUE_{index}")
             
     hoca_yukleri = {h: len(unique_load_tracker[h]) for h in unique_load_tracker}
 
-    # 2. DERSLERİ OLUŞTUR
+    # 2. DERSLERİ OLUŞTUR (Yine Normalize İsimle)
     for index, row in df_veri.iterrows():
         d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}" 
-        hoca = str(row['HocaAdi']).strip()
+        
+        raw_hoca = str(row['HocaAdi']).strip()
+        hoca = normalize_name(raw_hoca) # <--- CRITICAL FIX
+        
         bolum = str(row['Bolum']).strip()
         sinif = int(row['Sinif'])
         
@@ -234,7 +266,8 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
         oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
         
         tum_dersler.append(d_id)
-        ders_detaylari[d_id] = {'kod': row['DersKodu'], 'hoca': hoca, 'bolum': bolum, 'sinif': sinif, 'z_gun': zg, 'z_seans': zs, 'oid': oid}
+        # Real Name'i de detaylarda sakla ki Excel'e doğru basılsın
+        ders_detaylari[d_id] = {'kod': row['DersKodu'], 'hoca_key': hoca, 'hoca_real': raw_hoca, 'bolum': bolum, 'sinif': sinif, 'z_gun': zg, 'z_seans': zs, 'oid': oid}
         
         if hoca not in hoca_dersleri: hoca_dersleri[hoca] = []
         hoca_dersleri[hoca].append(d_id)
@@ -251,7 +284,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
     program = {}
     ortak_ders_degiskenleri = []
     
-    hoca_gun_var = {}
+    hoca_gun_var = {} 
     for h in hoca_dersleri:
         hoca_gun_var[h] = []
         for g_idx in range(5):
@@ -265,22 +298,14 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 program[(d, g, s)] = var
                 if is_ortak:
                     ortak_ders_degiskenleri.append(var)
-                
-                # Çift Yönlü Bağlama (Ders varsa Hoca Var, Yoksa Yok)
-                # Bu kısım aşağıda gün toplamı ile bağlanacak
-                pass
 
     if ortak_ders_degiskenleri:
         model.AddDecisionStrategy(ortak_ders_degiskenleri, cp_model.CHOOSE_FIRST, cp_model.SELECT_MIN_VALUE)
 
     # --- KISITLAR ---
     
-    # 1. Her ders 1 kez
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
-
-    # 2. Zorunlu Alanlar
-    for d in tum_dersler:
         detay = ders_detaylari[d]
         if detay['z_gun']:
             for g in gunler:
@@ -291,7 +316,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 3. Hoca Çakışması, Günlük Limit ve Hoca Gün Sayısı (FIXED V30)
+    # 3. HOCA KISITLARI
     for hoca, dersler in hoca_dersleri.items():
         hoca_gorevleri = []
         islenen_oidler = set()
@@ -306,51 +331,36 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
         
         yuk = hoca_yukleri[hoca]
         
-        # GÜNLÜK MAKSİMUM DERS KURALI
-        # Yük 1 -> Max 1
-        # Yük 2 -> Max 1 (2 güne yayılmalı)
-        # Yük 3 -> Max 1 (3 güne yayılmalı)
-        # Yük 4 -> Max 2 (2+1+1 olması için)
-        # Yük 5 -> Max 2
-        
-        gunluk_limit = 1
-        if yuk >= 4: gunluk_limit = 2
+        # Günlük Limit
+        gunluk_limit = 1 if yuk <= 3 else 2
         
         for g_idx, g in enumerate(gunler):
             gunluk_dersler = [program[(t, g, s)] for t in hoca_gorevleri for s in seanslar]
             
-            # Çakışma
             for s in seanslar:
                 model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri) <= 1)
             
-            # Günlük Limit
             gunluk_toplam = sum(gunluk_dersler)
             model.Add(gunluk_toplam <= gunluk_limit)
             
-            # GÜN DEĞİŞKENİNİ KİLİTLEME (ÇİFT YÖNLÜ)
-            # Eğer o gün ders varsa (toplam > 0), hoca_var = 1
             model.Add(gunluk_toplam > 0).OnlyEnforceIf(hoca_gun_var[hoca][g_idx])
-            # Eğer o gün ders yoksa (toplam == 0), hoca_var = 0
             model.Add(gunluk_toplam == 0).OnlyEnforceIf(hoca_gun_var[hoca][g_idx].Not())
 
-        # TOPLAM GÜN SAYISI KURALI (HARD)
-        if zorluk_seviyesi <= 2: # Altın ve Gümüş Mod
+        # GÜN YAYILIMI KURALI (Normalized Yük ile)
+        if zorluk_seviyesi <= 2:
             if yuk >= 3:
-                # 3, 4, 5 dersi olan EN AZ 3 gün gelecek
                 model.Add(sum(hoca_gun_var[hoca]) >= 3)
             elif yuk == 2:
-                # 2 dersi olan 2 gün gelecek (1+1)
                 model.Add(sum(hoca_gun_var[hoca]) == 2)
             else:
                 model.Add(sum(hoca_gun_var[hoca]) == 1)
         else:
-            # Bronz Mod (Son çare): 4 dersi 2 güne (2+2) sıkıştırmaya izin ver
             if yuk >= 4:
                 model.Add(sum(hoca_gun_var[hoca]) >= 2)
             else:
                 model.Add(sum(hoca_gun_var[hoca]) == yuk)
 
-        # ÖZEL İSTEKLER
+        # İSTEKLER
         unvan = hoca_bilgileri[hoca]['unvan']
         istek = hoca_bilgileri[hoca]['istek']
         
@@ -369,7 +379,6 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 if "CUM" in istek: istenilen_gunler.append(4)
                 for g_idx in range(5):
                     if g_idx not in istenilen_gunler: model.Add(hoca_gun_var[hoca][g_idx] == 0)
-            
             elif "ARDISIK" in istek and yuk > 1:
                 ilk = model.NewIntVar(0, 4, f'ilk_{hoca}')
                 son = model.NewIntVar(0, 4, f'son_{hoca}')
@@ -439,7 +448,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
 # --- ARAYÜZ ---
 col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button("📥 Şablon İndir (V30)", temiz_veri_sablonu(), "Ders_Sablonu_V30.xlsx")
+    st.download_button("📥 V31 Şablonu İndir", temiz_veri_sablonu(), "Ders_Sablonu_V31.xlsx")
 
 uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
@@ -450,14 +459,25 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
     basari_seviyesi = ""
     
     seviyeler = [
-        (1, "🥇 ALTIN MOD (Kesin Yayılım + İstekler)"),
-        (2, "🥈 GÜMÜŞ MOD (Kesin Yayılım + Prof/Doç)"),
-        (3, "🥉 BRONZ MOD (Esnek Yayılım)")
+        (1, "🥇 ALTIN MOD (Tüm İstekler)"),
+        (2, "🥈 GÜMÜŞ MOD (Sadece Prof/Doç)"),
+        (3, "🥉 BRONZ MOD (Kurallar Esnetildi)")
     ]
     
     pbar = st.progress(0)
     status_text = st.empty()
     
+    # DEBUG BİLGİSİ GÖSTER (Hocaların algılanan yükünü gösterelim)
+    with st.expander("ℹ️ Algılanan Hoca Yükleri (Kontrol Et)"):
+        temp_tracker = {}
+        for _, r in df_input.iterrows():
+            h_norm = normalize_name(str(r['HocaAdi']))
+            oid = str(r['OrtakDersID']) if pd.notna(r['OrtakDersID']) else f"uniq_{random.randint(0,9999)}"
+            if h_norm not in temp_tracker: temp_tracker[h_norm] = set()
+            temp_tracker[h_norm].add(oid)
+        
+        st.write({k: len(v) for k,v in temp_tracker.items()})
+
     for sev_id, sev_ad in seviyeler:
         status_text.markdown(f"### {sev_ad} deneniyor...")
         bulundu = False
@@ -498,7 +518,8 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
                     for g in gunler:
                         for s in seanslar:
                             if solver.Value(program[(d, g, s)]) == 1:
-                                val = f"{ders_detaylari[d]['kod']}\n{ders_detaylari[d]['hoca']}"
+                                # Not: Burada Excel'e 'Real Name' basıyoruz, normal halini değil.
+                                val = f"{ders_detaylari[d]['kod']}\n{ders_detaylari[d]['hoca_real']}"
                                 if data_map[s][g][sinif]:
                                     data_map[s][g][sinif] += "\n!!! HATA !!!\n" + val
                                 else:
@@ -523,6 +544,6 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
 
         writer.close()
         st.balloons()
-        st.download_button("📥 Final Programı İndir (V30)", output.getvalue(), "Akilli_Program_V30.xlsx")
+        st.download_button("📥 Final Programı İndir (V31)", output.getvalue(), "Akilli_Program_V31.xlsx")
     else:
-        st.error("❌ Çözüm Bulunamadı. Kısıtlar çok katı olabilir.")
+        st.error("❌ Çözüm Bulunamadı.")
