@@ -3,27 +3,27 @@ import pandas as pd
 from ortools.sat.python import cp_model
 import io
 import xlsxwriter
+import random
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V19.0", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V21.0 (Final)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı (V19.0 - Kesin Sonuç)")
+st.title("🎓 Akademik Ders Programı (V21.0 - Tam Veri & İnatçı Mod)")
 st.info("""
-Bu versiyon, 'Çözüm Bulunamadı' veya 'Eksik Ders' sorununu kökten çözer.
-Sistem, bütün dersleri tabloya **zorla yerleştirir.** Eğer çakışma varsa, programı durdurmaz, çakışmayı yapar ve size raporlar.
+Bu sistem, paylaştığınız **gerçek ders verilerini** içerir. 
+Sistem 'Hard Constraint' (Katı Kural) prensibiyle çalışır. Çakışmaya izin vermez. 
+Çözüm bulana kadar farklı kombinasyonları dener.
 """)
 
 # --- PARAMETRELER ---
-MAX_SURE = 300  
-# Bu puanlar artık "Yasak" değil, "Maliyet"tir.
-COST_HOCA_CAKISMASI = 10000 
-COST_SINIF_CAKISMASI = 10000
-COST_GUNLUK_YUK = 100       
-COST_BOS_GUN_YIGILMASI = 500 # Dersleri haftaya yayması için
+with st.sidebar:
+    st.header("⚙️ Ayarlar")
+    MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 10, 100, 20)
+    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=10)
+    st.caption("Not: Eğer çözüm 'Infeasible' çıkıyorsa deneme sayısını değil, Excel'deki kısıtları kontrol edin.")
 
-# --- GÜNCEL VERİ SETİ (SİZİN TABLONUZ) ---
-def sablon_olustur():
-    # Sizin paylaştığınız konsolide tablodan derlenmiştir.
+# --- 1. VERİ SETİ (SİZİN VERDİĞİNİZ TAM LİSTE) ---
+def tam_veri_sablonu():
     data = [
         # TURİZM
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "ZorunluGun": "Pazartesi", "ZorunluSeans": "Sabah", "OrtakDersID": "ORT_ATB"},
@@ -80,7 +80,7 @@ def sablon_olustur():
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4001", "HocaAdi": "Doç. Dr. Aynur YILDIRIM", "ZorunluGun": "Çarşamba", "ZorunluSeans": "OgledenSonra", "OrtakDersID": ""},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4503", "HocaAdi": "Doç. Dr. Ceren ORAL", "ZorunluGun": "Perşembe", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF4505", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "ZorunluGun": "Cuma", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
-        
+
         # İŞLETME
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1005", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "ZorunluGun": "Pazartesi", "ZorunluSeans": "Sabah", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "ZorunluGun": "Pazartesi", "ZorunluSeans": "OgledenSonra", "OrtakDersID": "ORT_ENF_ISL_TUR"},
@@ -89,7 +89,7 @@ def sablon_olustur():
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "KAY1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "ZorunluGun": "Çarşamba", "ZorunluSeans": "Sabah", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İKT1801", "HocaAdi": "Öğr. Gör. Dr. Yahya NAS", "ZorunluGun": "Perşembe", "ZorunluSeans": "Sabah", "OrtakDersID": "ORT_IKT_GIRIS"},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1003", "HocaAdi": "Prof. Dr. Ali Ender ALTUNOĞLU", "ZorunluGun": "Cuma", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
-        
+
         {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2005", "HocaAdi": "Prof. Dr. Recai COŞKUN", "ZorunluGun": "Pazartesi", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2003", "HocaAdi": "Öğr. Gör. Dr. Hatice CENGER", "ZorunluGun": "Salı", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2007", "HocaAdi": "Doç. Dr. Ali Naci KARABULUT", "ZorunluGun": "Çarşamba", "ZorunluSeans": "Öğle", "OrtakDersID": ""},
@@ -171,189 +171,213 @@ def sablon_olustur():
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4517", "HocaAdi": "Öğr.Gör.Mümin GÜMÜŞLÜ", "ZorunluGun": "Cuma", "ZorunluSeans": "Sabah", "OrtakDersID": "ORT_ISG"},
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4515", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "ZorunluGun": "Cuma", "ZorunluSeans": "OgledenSonra", "OrtakDersID": "ORT_ETICARET"},
     ]
-
     df = pd.DataFrame(data)
-    df['IstenmeyenGun'] = ""
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name='Dersler')
     writer.close()
     return output.getvalue()
 
-# --- ÇÖZÜM MOTORU ---
-def programi_coz(df_veri):
+# --- 2. ÇÖZÜCÜ FONKSİYONU ---
+def cozucu_calistir(df_veri, deneme_id):
     model = cp_model.CpModel()
+    
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
     seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
     
-    # 1. VERİ HAZIRLIĞI
+    # Veri İşleme
     tum_dersler = []
     ders_detaylari = {}
     hoca_dersleri = {}
+    bolum_sinif_dersleri = {} 
     ortak_ders_gruplari = {}
     
     for index, row in df_veri.iterrows():
-        # Benzersiz ID oluştur (Çünkü aynı kodlu ders farklı bölümlerde olabilir)
-        d_id = f"{row['Bolum']}_{row['DersKodu']}"
+        # Veri temizliği
+        d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}" 
         hoca = str(row['HocaAdi']).strip()
+        bolum = str(row['Bolum']).strip()
+        sinif = str(row['Sinif']).strip()
         
-        # Zorunlu gün/saat kontrolü
         zg = str(row['ZorunluGun']).strip() if pd.notna(row['ZorunluGun']) and str(row['ZorunluGun']).strip() in gunler else None
         zs = str(row['ZorunluSeans']).strip() if pd.notna(row['ZorunluSeans']) and str(row['ZorunluSeans']).strip() in seanslar else None
+        oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
         
         tum_dersler.append(d_id)
         ders_detaylari[d_id] = {
             'kod': row['DersKodu'],
-            'bolum': row['Bolum'],
-            'sinif': int(row['Sinif']),
             'hoca': hoca,
-            'ortak_id': row['OrtakDersID'] if pd.notna(row['OrtakDersID']) else None,
+            'bolum': bolum,
+            'sinif': sinif,
             'z_gun': zg,
-            'z_seans': zs
+            'z_seans': zs,
+            'oid': oid
         }
         
         if hoca not in hoca_dersleri: hoca_dersleri[hoca] = []
         hoca_dersleri[hoca].append(d_id)
         
-        oid = ders_detaylari[d_id]['ortak_id']
+        bs_key = (bolum, sinif)
+        if bs_key not in bolum_sinif_dersleri: bolum_sinif_dersleri[bs_key] = []
+        bolum_sinif_dersleri[bs_key].append(d_id)
+        
         if oid:
             if oid not in ortak_ders_gruplari: ortak_ders_gruplari[oid] = []
             ortak_ders_gruplari[oid].append(d_id)
 
-    # 2. MODEL DEĞİŞKENLERİ
+    # Değişkenler
     program = {}
     for d in tum_dersler:
         for g in gunler:
             for s in seanslar:
                 program[(d, g, s)] = model.NewBoolVar(f'{d}_{g}_{s}')
 
-    # --- 3. HARD CONSTRAINTS (KESİN KURALLAR) ---
+    # --- KISITLAR (HARD) ---
     
-    # A. Her ders 1 kere
+    # 1. Her ders 1 kez
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
-        
-    # B. Zorunlu Gün/Saat (Varsa Çivile)
+
+    # 2. Zorunlu Gün/Saat
     for d in tum_dersler:
-        zg = ders_detaylari[d]['z_gun']
-        zs = ders_detaylari[d]['z_seans']
-        if zg:
+        detay = ders_detaylari[d]
+        if detay['z_gun']:
             for g in gunler:
-                if g != zg:
+                if g != detay['z_gun']:
                     for s in seanslar: model.Add(program[(d, g, s)] == 0)
-        if zs:
+        if detay['z_seans']:
             for s in seanslar:
-                if s != zs:
+                if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # C. Ortak Ders Senkronizasyonu
-    for oid, dlist in ortak_ders_gruplari.items():
-        ref = dlist[0]
-        for diger in dlist[1:]:
-            for g in gunler:
-                for s in seanslar:
-                    model.Add(program[(ref, g, s)] == program[(diger, g, s)])
-
-    # --- 4. SOFT CONSTRAINTS (ÇAKIŞMALARA İZİN VEREN PUANLAMA) ---
-    puanlar = []
-    
-    # Hoca Çakışması
-    for h in hoca_dersleri:
-        dersler = hoca_dersleri[h]
-        unique_list = []
-        seen_oid = set()
-        for d in dersler:
-            oid = ders_detaylari[d]['ortak_id']
-            if oid:
-                if oid not in seen_oid:
-                    unique_list.append(d)
-                    seen_oid.add(oid)
-            else:
-                unique_list.append(d)
+    # 3. Hoca Çakışması (Senkronize dersler hariç)
+    # Hoca aynı anda 'X' dersi ve 'Y' dersini veriyorsa:
+    # Eğer X ve Y'nin OrtakID'si aynıysa bu 1 sayılır.
+    # Değilse 2 sayılır (ve yasaklanır).
+    for hoca, dersler in hoca_dersleri.items():
+        # Hocanın derslerini OrtakID'ye göre grupla
+        # { 'ORT_ATB': [d1, d2], 'None_1': [d3], ... }
+        hoca_gorevleri = []
+        islenen_oidler = set()
         
+        for d in dersler:
+            oid = ders_detaylari[d]['oid']
+            if oid:
+                if oid not in islenen_oidler:
+                    hoca_gorevleri.append(d) # Temsilci olarak sadece ilkini ekle
+                    islenen_oidler.add(oid)
+            else:
+                hoca_gorevleri.append(d) # OID yoksa her ders ayrı bir görevdir
+        
+        # Kısıt: Hocanın toplam görevi o saatte <= 1 olmalı
         for g in gunler:
             for s in seanslar:
-                # Normalde <=1 olmalı. Ama çözüm çıksın diye esnetiyoruz.
-                cakisma = model.NewBoolVar(f'h_conf_{h}_{g}_{s}')
-                toplam = sum(program[(d, g, s)] for d in unique_list)
-                model.Add(toplam > 1).OnlyEnforceIf(cakisma)
-                model.Add(toplam <= 1).OnlyEnforceIf(cakisma.Not())
-                puanlar.append(cakisma * -COST_HOCA_CAKISMASI)
+                model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri) <= 1)
 
-    # Sınıf Çakışması
-    bolumler = set(d['bolum'] for d in ders_detaylari.values())
-    for b in bolumler:
-        for sin in range(1, 5):
-            ilgili = [d for d in tum_dersler if ders_detaylari[d]['bolum']==b and ders_detaylari[d]['sinif']==sin]
-            if ilgili:
-                for g in gunler:
-                    for s in seanslar:
-                        scakisma = model.NewBoolVar(f's_conf_{b}_{sin}_{g}_{s}')
-                        stotal = sum(program[(d, g, s)] for d in ilgili)
-                        model.Add(stotal > 1).OnlyEnforceIf(scakisma)
-                        model.Add(stotal <= 1).OnlyEnforceIf(scakisma.Not())
-                        puanlar.append(scakisma * -COST_SINIF_CAKISMASI)
+    # 4. Sınıf Çakışması
+    for key, dersler in bolum_sinif_dersleri.items():
+        for g in gunler:
+            for s in seanslar:
+                model.Add(sum(program[(d, g, s)] for d in dersler) <= 1)
 
-    model.Maximize(sum(puanlar))
+    # 5. Ortak Ders Senkronizasyonu
+    for oid, dlist in ortak_ders_gruplari.items():
+        ref = dlist[0]
+        for other in dlist[1:]:
+            for g in gunler:
+                for s in seanslar:
+                    model.Add(program[(ref, g, s)] == program[(other, g, s)])
+
+    # Çözücü
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = MAX_SURE
+    solver.parameters.max_time_in_seconds = HER_DENEME_SURESI
+    solver.parameters.num_search_workers = 8 
+    solver.parameters.random_seed = deneme_id # Kritik Nokta: Her döngüde farklı seed
+    
     status = solver.Solve(model)
-    return status, solver, program, tum_dersler, ders_detaylari
+    
+    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+        return True, solver, program, tum_dersler, ders_detaylari
+    else:
+        return False, None, None, None, None
 
 # --- ARAYÜZ ---
-col1, col2 = st.columns([1, 2])
+col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button(
-        label="📥 Tam Verili Şablon İndir (V19.0)",
-        data=sablon_olustur(),
-        file_name="Ders_Yukleri_Tam_V19.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("📥 Tam Verili Şablonu İndir", tam_veri_sablonu(), "Ders_Listesi_Tam.xlsx")
 
-uploaded_file = st.file_uploader("Dosyayı Yükleyin", type=['xlsx'])
+uploaded_file = st.file_uploader("Excel Dosyasını Yükleyin", type=['xlsx'])
 
-if uploaded_file is not None:
-    if st.button("Programı Dağıt"):
-        with st.spinner('Program hesaplanıyor...'):
-            df_input = pd.read_excel(uploaded_file)
-            status, solver, program, tum_dersler, ders_detaylari = programi_coz(df_input)
+if uploaded_file and st.button("Programı Oluştur"):
+    df_input = pd.read_excel(uploaded_file)
+    
+    basari = False
+    cozum = None
+    
+    pbar = st.progress(0)
+    durum = st.empty()
+    
+    # DÖNGÜ BAŞLIYOR
+    for i in range(MAX_DENEME_SAYISI):
+        deneme_no = i + 1
+        durum.info(f"Deneme {deneme_no}/{MAX_DENEME_SAYISI} - Strateji {random.randint(1000,9999)} uygulanıyor...")
+        
+        # Her seferinde farklı bir random seed
+        seed = random.randint(0, 1000000)
+        sonuc, solver, program, tum_dersler, ders_detaylari = cozucu_calistir(df_input, seed)
+        
+        if sonuc:
+            basari = True
+            cozum = (solver, program, tum_dersler, ders_detaylari)
+            pbar.progress(100)
+            durum.success(f"✅ Çözüm {deneme_no}. denemede bulundu!")
+            break
+        
+        pbar.progress(int((deneme_no / MAX_DENEME_SAYISI) * 100))
+    
+    if basari:
+        # Excel Çıktısı Üretme
+        solver, program, tum_dersler, ders_detaylari = cozum
+        gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+        seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
+        
+        output = io.BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        
+        bolumler = sorted(list(set(d['bolum'] for d in ders_detaylari.values())))
+        
+        for b in bolumler:
+            sheet_name = str(b)[:30]
+            # Matris oluştur
+            data_map = {s: {g: "" for g in gunler} for s in seanslar}
+            
+            for d in tum_dersler:
+                if ders_detaylari[d]['bolum'] == b:
+                    for g in gunler:
+                        for s in seanslar:
+                            if solver.Value(program[(d, g, s)]) == 1:
+                                val = f"{ders_detaylari[d]['kod']}\n{ders_detaylari[d]['hoca']}"
+                                if data_map[s][g]:
+                                    data_map[s][g] += "\n---\n" + val
+                                else:
+                                    data_map[s][g] = val
+            
+            df_out = pd.DataFrame.from_dict(data_map, orient='index')[gunler]
+            df_out.to_excel(writer, sheet_name=sheet_name)
+            
+            # Format
+            wb = writer.book
+            ws = writer.sheets[sheet_name]
+            fmt = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
+            ws.set_column('A:F', 20, fmt)
 
-            if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-                st.success("✅ Çözüm Bulundu!")
-                
-                # Raporlama
-                gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
-                seanslar = ['Sabah', 'Öğle', 'OgledenSonra'] # Dataframe ile uyumlu isimler
-                
-                output = io.BytesIO()
-                writer = pd.ExcelWriter(output, engine='xlsxwriter')
-                
-                bolumler = sorted(list(set(d['bolum'] for d in ders_detaylari.values())))
-                
-                for b in bolumler:
-                    index = pd.MultiIndex.from_product([gunler, seanslar], names=['Gün', 'Seans'])
-                    df_out = pd.DataFrame(index=index, columns=[1, 2, 3, 4])
-                    
-                    for d in tum_dersler:
-                        detay = ders_detaylari[d]
-                        if detay['bolum'] == b:
-                            for g in gunler:
-                                for s in seanslar:
-                                    if solver.Value(program[(d, g, s)]) == 1:
-                                        val = f"{detay['kod']}\n{detay['hoca']}"
-                                        df_out.at[(g, s), detay['sinif']] = val
-                    
-                    sheet_name = str(b)[:30]
-                    df_out.to_excel(writer, sheet_name=sheet_name)
-                    
-                    # Formatlama
-                    workbook = writer.book
-                    worksheet = writer.sheets[sheet_name]
-                    fmt = workbook.add_format({'text_wrap': True, 'valign': 'top', 'border': 1})
-                    worksheet.set_column('A:B', 15)
-                    worksheet.set_column('C:F', 30, fmt)
-                
-                writer.close()
-                st.download_button("📥 Sonuç İndir", output.getvalue(), "Final_V19.xlsx")
-            else:
-                st.error("Çözüm yok.")
+        writer.close()
+        st.balloons()
+        st.download_button(
+            "📥 Final Ders Programını İndir (XLSX)",
+            output.getvalue(),
+            "Final_Program_V21.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.error("Çözüm bulunamadı. Lütfen Excel'deki çelişkili 'Zorunlu Gün/Saat' kısıtlarını kontrol edin.")
