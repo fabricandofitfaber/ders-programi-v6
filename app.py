@@ -6,14 +6,13 @@ import xlsxwriter
 import random
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V25.0 (Bug Fix)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V26.0 (Format Düzeltildi)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı (V25.0 - Çelik Zırh Modu)")
-st.error("""
-**DÜZELTİLEN KRİTİK HATA:**
-Önceki versiyonda aynı sınıfa aynı saatte iki ders yazılabilmesi ihtimali vardı.
-Bu versiyonda 'Pairwise Collision' (Çiftli Çarpışma) algoritması kullanıldı. 
-Aynı sınıfın iki farklı dersi, matematiksel olarak aynı hücreye Gİ-RE-MEZ.
+st.title("🎓 Akademik Ders Programı (V26.0 - Görsel Çakışma Giderildi)")
+st.success("""
+**DÜZELTME:** Önceki versiyonda farklı sınıfların dersleri (Örn: 1. ve 3. Sınıf) aynı kutuya yazıldığı için 'Çakışma' gibi görünüyordu.
+Bu versiyonda Excel formatı değiştirildi: **Her sınıf (1, 2, 3, 4) için ayrı sütun açıldı.**
+Artık program net bir şekilde okunabilir.
 """)
 
 # --- PARAMETRELER ---
@@ -22,9 +21,9 @@ with st.sidebar:
     MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 100, 10000, 5000)
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=30.0)
 
-# --- 1. VERİ SETİ ---
+# --- 1. VERİ SETİ (AYNI) ---
 def temiz_veri_sablonu():
-    # Veri seti V24 ile aynı, sadece boş şablon mantığı
+    # Veri seti V25 ile aynı
     raw_data = [
         # TURİZM
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -169,8 +168,6 @@ def temiz_veri_sablonu():
         item["ZorunluSeans"] = ""
 
     df = pd.DataFrame(raw_data)
-    
-    # Sütun sırasını düzenleyelim
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "ZorunluGun", "ZorunluSeans", "OrtakDersID"]
     df = df[cols]
     
@@ -186,7 +183,7 @@ def temiz_veri_sablonu():
     writer.close()
     return output.getvalue()
 
-# --- 2. ÇÖZÜCÜ FONKSİYONU ---
+# --- 2. ÇÖZÜCÜ FONKSİYONU (V25 ile AYNI) ---
 def cozucu_calistir(df_veri, deneme_id):
     model = cp_model.CpModel()
     
@@ -207,12 +204,10 @@ def cozucu_calistir(df_veri, deneme_id):
         
         if hoca not in hoca_yukleri:
             hoca_yukleri[hoca] = set()
-        
         if oid:
             hoca_yukleri[hoca].add(oid)
         else:
             hoca_yukleri[hoca].add(f"DERS_{index}")
-            
     for h in hoca_yukleri:
         hoca_yukleri[h] = len(hoca_yukleri[h])
 
@@ -227,15 +222,7 @@ def cozucu_calistir(df_veri, deneme_id):
         oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
         
         tum_dersler.append(d_id)
-        ders_detaylari[d_id] = {
-            'kod': row['DersKodu'],
-            'hoca': hoca,
-            'bolum': bolum,
-            'sinif': sinif,
-            'z_gun': zg,
-            'z_seans': zs,
-            'oid': oid
-        }
+        ders_detaylari[d_id] = {'kod': row['DersKodu'], 'hoca': hoca, 'bolum': bolum, 'sinif': sinif, 'z_gun': zg, 'z_seans': zs, 'oid': oid}
         
         if hoca not in hoca_dersleri: hoca_dersleri[hoca] = []
         hoca_dersleri[hoca].append(d_id)
@@ -266,7 +253,6 @@ def cozucu_calistir(df_veri, deneme_id):
                 program[(d, g, s)] = var
                 if is_ortak:
                     ortak_ders_degiskenleri.append(var)
-                
                 hoca = ders_detaylari[d]['hoca']
                 model.Add(hoca_gun_var[hoca][g_idx] == 1).OnlyEnforceIf(var)
 
@@ -274,13 +260,8 @@ def cozucu_calistir(df_veri, deneme_id):
         model.AddDecisionStrategy(ortak_ders_degiskenleri, cp_model.CHOOSE_FIRST, cp_model.SELECT_MIN_VALUE)
 
     # --- KISITLAR ---
-    
-    # 1. Her ders 1 kez
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
-
-    # 2. Zorunlu Gün/Saat
-    for d in tum_dersler:
         detay = ders_detaylari[d]
         if detay['z_gun']:
             for g in gunler:
@@ -291,7 +272,6 @@ def cozucu_calistir(df_veri, deneme_id):
                 if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 3. Hoca Çakışması ve Yük
     for hoca, dersler in hoca_dersleri.items():
         hoca_gorevleri = []
         islenen_oidler = set()
@@ -322,56 +302,38 @@ def cozucu_calistir(df_veri, deneme_id):
             model.AddMaxEquality(son_gun, [g_idx * hoca_gun_var[hoca][g_idx] for g_idx in range(5)])
             model.Add(son_gun - ilk_gun + 1 <= hedef_gun + 1)
 
-    # --- 4. SINIF İÇİ ÇAKIŞMA (PAIRWISE CHECK - BU KISIM DÜZELTİLDİ) ---
-    # Eski Yöntem: sum(dersler) <= 1 (Bazen kaçırıyordu)
-    # Yeni Yöntem: Her ikili ders kombinasyonu için "İkiniz aynı anda olamazsınız" kuralı.
-    
     for (bolum, sinif), dersler in bolum_sinif_dersleri.items():
-        # A) Günlük Toplam Yük (Öğrenci günde max 2 derse girsin)
         for g in gunler:
              gunluk_toplam = sum(program[(d, g, s)] for d in dersler for s in seanslar)
              model.Add(gunluk_toplam <= 2)
 
-        # B) Aynı Saat Çakışması (PAIRWISE - ÇELİK ZIRH)
-        # Listedeki her dersi, diğer derslerle tek tek kıyasla
         n = len(dersler)
         for i in range(n):
             for j in range(i + 1, n):
                 d1 = dersler[i]
                 d2 = dersler[j]
-                
-                # Eğer bu iki dersin "OrtakDersID"si AYNI ise ve BOŞ DEĞİLSE, çakışabilirler (zaten aynı ders).
-                # Değilse, ASLA çakışamazlar.
                 oid1 = ders_detaylari[d1]['oid']
                 oid2 = ders_detaylari[d2]['oid']
-                
                 ayni_ortak_ders_mi = (oid1 is not None) and (oid1 == oid2)
-                
                 if not ayni_ortak_ders_mi:
                     for g in gunler:
                         for s in seanslar:
-                            # d1 + d2 <= 1 (İkisi aynı anda 1 olamaz)
                             model.Add(program[(d1, g, s)] + program[(d2, g, s)] <= 1)
 
-
-    # 5. Dikey Çakışma (1 vs 2, 2 vs 3, 3 vs 4)
     tum_bolumler = set(d['bolum'] for d in ders_detaylari.values())
     for bolum in tum_bolumler:
         for sinif in [1, 2, 3]:
             alt_sinif_key = (bolum, sinif)
             ust_sinif_key = (bolum, sinif + 1)
-            
             if alt_sinif_key in bolum_sinif_dersleri and ust_sinif_key in bolum_sinif_dersleri:
                 dersler_alt = bolum_sinif_dersleri[alt_sinif_key]
                 dersler_ust = bolum_sinif_dersleri[ust_sinif_key]
-                
                 for g in gunler:
                     for s in seanslar:
                         toplam_aktiflik = sum(program[(d, g, s)] for d in dersler_alt) + \
                                           sum(program[(d, g, s)] for d in dersler_ust)
                         model.Add(toplam_aktiflik <= 1)
 
-    # 6. Ortak Ders Senkronizasyonu
     for oid, dlist in ortak_ders_gruplari.items():
         ref = dlist[0]
         for other in dlist[1:]:
@@ -379,14 +341,11 @@ def cozucu_calistir(df_veri, deneme_id):
                 for s in seanslar:
                     model.Add(program[(ref, g, s)] == program[(other, g, s)])
 
-    # --- ÇÖZÜCÜ ---
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = HER_DENEME_SURESI
     solver.parameters.num_search_workers = 8 
     solver.parameters.random_seed = deneme_id 
-    
     status = solver.Solve(model)
-    
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         return True, solver, program, tum_dersler, ders_detaylari
     else:
@@ -395,7 +354,7 @@ def cozucu_calistir(df_veri, deneme_id):
 # --- ARAYÜZ ---
 col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button("📥 Boş Şablonu İndir", temiz_veri_sablonu(), "Bos_Ders_Sablonu_V25.xlsx")
+    st.download_button("📥 Boş Şablonu İndir", temiz_veri_sablonu(), "Bos_Ders_Sablonu_V26.xlsx")
 
 uploaded_file = st.file_uploader("Excel'i Yükleyin", type=['xlsx'])
 
@@ -410,7 +369,7 @@ if uploaded_file and st.button("🚀 Programı Başlat"):
     
     for i in range(MAX_DENEME_SAYISI):
         deneme_no = i + 1
-        durum.info(f"Deneme {deneme_no}/{MAX_DENEME_SAYISI} - Kritik çakışma kontrolü yapılıyor...")
+        durum.info(f"Deneme {deneme_no}/{MAX_DENEME_SAYISI} - Tablo formatı düzenleniyor...")
         
         seed = random.randint(0, 10000000)
         sonuc, solver, program, tum_dersler, ders_detaylari = cozucu_calistir(df_input, seed)
@@ -436,34 +395,61 @@ if uploaded_file and st.button("🚀 Programı Başlat"):
         
         for b in bolumler:
             sheet_name = str(b)[:30]
-            data_map = {s: {g: "" for g in gunler} for s in seanslar}
             
+            # --- YENİ EXCEL FORMATI (MATRİS) ---
+            # Satırlar: Gün+Saat
+            # Sütunlar: 1. Sınıf, 2. Sınıf, 3. Sınıf, 4. Sınıf
+            
+            # DataMap'i [Saat][Gün][Sınıf] olarak tutalım
+            data_map = {}
+            for s in seanslar:
+                data_map[s] = {}
+                for g in gunler:
+                    data_map[s][g] = {1: "", 2: "", 3: "", 4: ""}
+
             for d in tum_dersler:
                 if ders_detaylari[d]['bolum'] == b:
+                    sinif = ders_detaylari[d]['sinif']
                     for g in gunler:
                         for s in seanslar:
                             if solver.Value(program[(d, g, s)]) == 1:
                                 val = f"{ders_detaylari[d]['kod']}\n{ders_detaylari[d]['hoca']}"
-                                if data_map[s][g]:
-                                    # Hata varsa bile burada görelim
-                                    data_map[s][g] += "\n!!! ÇAKIŞMA !!!\n" + val
+                                # Eğer aynı sınıfın aynı saatte başka dersi varsa (HATA) yanına ekle
+                                if data_map[s][g][sinif]:
+                                    data_map[s][g][sinif] += "\n!!! HATA !!!\n" + val
                                 else:
-                                    data_map[s][g] = val
+                                    data_map[s][g][sinif] = val
             
-            df_out = pd.DataFrame.from_dict(data_map, orient='index')[gunler]
-            df_out.to_excel(writer, sheet_name=sheet_name)
+            # Pandas DataFrame'e çevir
+            # MultiIndex (Gün, Seans) -> Columns (1, 2, 3, 4)
+            rows_list = []
+            for g in gunler:
+                for s in seanslar:
+                    row = {
+                        "Gün": g,
+                        "Seans": s,
+                        "1. Sınıf": data_map[s][g][1],
+                        "2. Sınıf": data_map[s][g][2],
+                        "3. Sınıf": data_map[s][g][3],
+                        "4. Sınıf": data_map[s][g][4]
+                    }
+                    rows_list.append(row)
+            
+            df_out = pd.DataFrame(rows_list)
+            df_out.to_excel(writer, sheet_name=sheet_name, index=False)
             
             wb = writer.book
             ws = writer.sheets[sheet_name]
             fmt = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
-            ws.set_column('A:F', 20, fmt)
+            ws.set_column('A:B', 15)
+            ws.set_column('C:F', 25, fmt)
 
         writer.close()
         st.balloons()
         st.download_button(
-            "📥 Final Programı İndir (V25)",
+            "📥 Final Programı İndir (V26)",
             output.getvalue(),
-            "Final_Program_V25.xlsx",
+            "Final_Program_V26.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
