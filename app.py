@@ -6,24 +6,26 @@ import xlsxwriter
 import random
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Akademik Ders Programı V21.0 (Final)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı V22.0 (Akıllı Strateji)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı (V21.0 - Tam Veri & İnatçı Mod)")
+st.title("🎓 Akademik Ders Programı (V22.0 - Öncelikli Yerleşim Modu)")
 st.info("""
-Bu sistem, paylaştığınız **gerçek ders verilerini** içerir. 
-Sistem 'Hard Constraint' (Katı Kural) prensibiyle çalışır. Çakışmaya izin vermez. 
-Çözüm bulana kadar farklı kombinasyonları dener.
+**YENİLİKLER:**
+1. **Önce Ortak Dersler:** Sistem artık rastgele değil, önce 'Ortak Dersleri' kilitleyip sonra diğerlerini yerleştiriyor.
+2. **Günlük Yük Sınırı:** Öğrenciler günde en fazla 2 seans derse girebilir (Sabah-Öğle-Akşam üçlemesinden en az 1'i boş kalır).
+3. **Akıllı Sıralama:** Çözüm bulunamazsa, stratejiyi değiştirerek tekrar dener.
 """)
 
 # --- PARAMETRELER ---
 with st.sidebar:
-    st.header("⚙️ Ayarlar")
-    MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 10, 100, 20)
-    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=10)
-    st.caption("Not: Eğer çözüm 'Infeasible' çıkıyorsa deneme sayısını değil, Excel'deki kısıtları kontrol edin.")
+    st.header("⚙️ Performans Ayarları")
+    MAX_DENEME_SAYISI = st.slider("Maksimum Deneme Sayısı", 10, 100, 50) # Varsayılanı arttırdım
+    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=20.0) # Süreyi arttırdım
 
-# --- 1. VERİ SETİ (SİZİN VERDİĞİNİZ TAM LİSTE) ---
+# --- 1. VERİ SETİ ---
 def tam_veri_sablonu():
+    # Önceki verinin aynısı, yer kaplamaması için fonksiyon içine gömüldü.
+    # Kullanıcı indirirken tam veriyi alacak.
     data = [
         # TURİZM
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "ZorunluGun": "Pazartesi", "ZorunluSeans": "Sabah", "OrtakDersID": "ORT_ATB"},
@@ -185,7 +187,7 @@ def cozucu_calistir(df_veri, deneme_id):
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
     seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
     
-    # Veri İşleme
+    # --- VERİ HAZIRLIĞI ---
     tum_dersler = []
     ders_detaylari = {}
     hoca_dersleri = {}
@@ -193,7 +195,6 @@ def cozucu_calistir(df_veri, deneme_id):
     ortak_ders_gruplari = {}
     
     for index, row in df_veri.iterrows():
-        # Veri temizliği
         d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}" 
         hoca = str(row['HocaAdi']).strip()
         bolum = str(row['Bolum']).strip()
@@ -225,14 +226,26 @@ def cozucu_calistir(df_veri, deneme_id):
             if oid not in ortak_ders_gruplari: ortak_ders_gruplari[oid] = []
             ortak_ders_gruplari[oid].append(d_id)
 
-    # Değişkenler
+    # --- DEĞİŞKENLER ---
     program = {}
+    ortak_ders_degiskenleri = [] # Heuristic için toplayacağız
+    
     for d in tum_dersler:
+        is_ortak = (ders_detaylari[d]['oid'] is not None)
         for g in gunler:
             for s in seanslar:
-                program[(d, g, s)] = model.NewBoolVar(f'{d}_{g}_{s}')
+                var = model.NewBoolVar(f'{d}_{g}_{s}')
+                program[(d, g, s)] = var
+                if is_ortak:
+                    ortak_ders_degiskenleri.append(var)
 
-    # --- KISITLAR (HARD) ---
+    # --- HEURISTIC (STRATEJİK ÖNCELİKLENDİRME) ---
+    # Solver'a diyoruz ki: "Önce bu değişkenlere karar ver."
+    # Ortak dersler sistemin en kilit noktasıdır, önce onları yerleştirsin.
+    if ortak_ders_degiskenleri:
+        model.AddDecisionStrategy(ortak_ders_degiskenleri, cp_model.CHOOSE_FIRST, cp_model.SELECT_MIN_VALUE)
+
+    # --- KISITLAR ---
     
     # 1. Her ders 1 kez
     for d in tum_dersler:
@@ -250,35 +263,34 @@ def cozucu_calistir(df_veri, deneme_id):
                 if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 3. Hoca Çakışması (Senkronize dersler hariç)
-    # Hoca aynı anda 'X' dersi ve 'Y' dersini veriyorsa:
-    # Eğer X ve Y'nin OrtakID'si aynıysa bu 1 sayılır.
-    # Değilse 2 sayılır (ve yasaklanır).
+    # 3. Hoca Çakışması
     for hoca, dersler in hoca_dersleri.items():
-        # Hocanın derslerini OrtakID'ye göre grupla
-        # { 'ORT_ATB': [d1, d2], 'None_1': [d3], ... }
         hoca_gorevleri = []
         islenen_oidler = set()
-        
         for d in dersler:
             oid = ders_detaylari[d]['oid']
             if oid:
                 if oid not in islenen_oidler:
-                    hoca_gorevleri.append(d) # Temsilci olarak sadece ilkini ekle
+                    hoca_gorevleri.append(d)
                     islenen_oidler.add(oid)
             else:
-                hoca_gorevleri.append(d) # OID yoksa her ders ayrı bir görevdir
+                hoca_gorevleri.append(d)
         
-        # Kısıt: Hocanın toplam görevi o saatte <= 1 olmalı
         for g in gunler:
             for s in seanslar:
                 model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri) <= 1)
 
-    # 4. Sınıf Çakışması
-    for key, dersler in bolum_sinif_dersleri.items():
+    # 4. Sınıf Çakışması ve GÜNLÜK YÜK KISITI (YENİ!)
+    for (bolum, sinif), dersler in bolum_sinif_dersleri.items():
         for g in gunler:
+            # A) Aynı anda iki ders olamaz
             for s in seanslar:
                 model.Add(sum(program[(d, g, s)] for d in dersler) <= 1)
+            
+            # B) Bir gün içinde toplam ders sayısı <= 2 olmalı
+            # Yani sabah+öğle+akşam dolu olamaz. Max 2'si dolu olabilir.
+            gunluk_toplam = sum(program[(d, g, s)] for d in dersler for s in seanslar)
+            model.Add(gunluk_toplam <= 2)
 
     # 5. Ortak Ders Senkronizasyonu
     for oid, dlist in ortak_ders_gruplari.items():
@@ -288,11 +300,11 @@ def cozucu_calistir(df_veri, deneme_id):
                 for s in seanslar:
                     model.Add(program[(ref, g, s)] == program[(other, g, s)])
 
-    # Çözücü
+    # --- ÇÖZÜCÜ AYARLARI ---
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = HER_DENEME_SURESI
     solver.parameters.num_search_workers = 8 
-    solver.parameters.random_seed = deneme_id # Kritik Nokta: Her döngüde farklı seed
+    solver.parameters.random_seed = deneme_id 
     
     status = solver.Solve(model)
     
@@ -304,11 +316,11 @@ def cozucu_calistir(df_veri, deneme_id):
 # --- ARAYÜZ ---
 col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button("📥 Tam Verili Şablonu İndir", tam_veri_sablonu(), "Ders_Listesi_Tam.xlsx")
+    st.download_button("📥 Tam Verili Şablonu İndir", tam_veri_sablonu(), "Ders_Listesi_Tam_V22.xlsx")
 
 uploaded_file = st.file_uploader("Excel Dosyasını Yükleyin", type=['xlsx'])
 
-if uploaded_file and st.button("Programı Oluştur"):
+if uploaded_file and st.button("🚀 Programı Oluştur"):
     df_input = pd.read_excel(uploaded_file)
     
     basari = False
@@ -317,12 +329,11 @@ if uploaded_file and st.button("Programı Oluştur"):
     pbar = st.progress(0)
     durum = st.empty()
     
-    # DÖNGÜ BAŞLIYOR
+    # DÖNGÜ
     for i in range(MAX_DENEME_SAYISI):
         deneme_no = i + 1
-        durum.info(f"Deneme {deneme_no}/{MAX_DENEME_SAYISI} - Strateji {random.randint(1000,9999)} uygulanıyor...")
+        durum.info(f"Deneme {deneme_no}/{MAX_DENEME_SAYISI} - Strateji değiştiriliyor...")
         
-        # Her seferinde farklı bir random seed
         seed = random.randint(0, 1000000)
         sonuc, solver, program, tum_dersler, ders_detaylari = cozucu_calistir(df_input, seed)
         
@@ -336,7 +347,6 @@ if uploaded_file and st.button("Programı Oluştur"):
         pbar.progress(int((deneme_no / MAX_DENEME_SAYISI) * 100))
     
     if basari:
-        # Excel Çıktısı Üretme
         solver, program, tum_dersler, ders_detaylari = cozum
         gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
         seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
@@ -348,7 +358,6 @@ if uploaded_file and st.button("Programı Oluştur"):
         
         for b in bolumler:
             sheet_name = str(b)[:30]
-            # Matris oluştur
             data_map = {s: {g: "" for g in gunler} for s in seanslar}
             
             for d in tum_dersler:
@@ -365,7 +374,6 @@ if uploaded_file and st.button("Programı Oluştur"):
             df_out = pd.DataFrame.from_dict(data_map, orient='index')[gunler]
             df_out.to_excel(writer, sheet_name=sheet_name)
             
-            # Format
             wb = writer.book
             ws = writer.sheets[sheet_name]
             fmt = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
@@ -376,8 +384,8 @@ if uploaded_file and st.button("Programı Oluştur"):
         st.download_button(
             "📥 Final Ders Programını İndir (XLSX)",
             output.getvalue(),
-            "Final_Program_V21.xlsx",
+            "Final_Program_V22.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.error("Çözüm bulunamadı. Lütfen Excel'deki çelişkili 'Zorunlu Gün/Saat' kısıtlarını kontrol edin.")
+        st.error("Çözüm bulunamadı. Lütfen 'Zorunlu Gün' kısıtlarını gevşetmeyi deneyin.")
