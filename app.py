@@ -5,30 +5,26 @@ import io
 import xlsxwriter
 import random
 
-# --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı V27.1 (Final Tam Sürüm)", layout="wide")
+# Sayfa Ayarları
+st.set_page_config(page_title="Akademik Ders Programı V28.0 (Tam Kontrol)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı (V27.1 - Final Tam Sürüm)")
-st.markdown("""
-Bu versiyon, önceki tüm versiyonların **en iyi özelliklerinin birleşimidir**:
-* ✅ **Görsel:** V26'daki gibi her sınıf ayrı sütunda (Okunabilir Format).
-* ✅ **Güvenlik:** V25'teki gibi 'Çelik Zırh' (Asla çakışma yok).
-* ✅ **Alttan Ders:** V24'teki gibi 1-2, 2-3, 3-4 arası çakışma koruması.
-* ✅ **Akıllı Taviz (V27):** Hocaların özel isteklerini (Ardışık gün, Pzt-Salı vb.) dener, olmazsa esneterek mutlaka çözüm bulur.
+st.title("🎓 Akademik Ders Programı (V28.0 - Yayılım Garantili)")
+st.info("""
+**V28.0 GÜNCELLEMELERİ:**
+1. **Zorunlu Yayılım:** 4 veya 5 dersi olan hocalar, **kesinlikle 3 gün** okula gelir (Örn: 2+1+1). 2 güne sıkıştırma (2+2) engellenir.
+2. **Yük Dengesi:** Ortak dersler (farklı bölümlerde aynı ders) tek yük sayılır.
+3. **Esneklik:** Sistem önce '3 Gün Yayılımı' dener. Çözüm yoksa '2 Güne Sıkışabilir' moduna geçer.
 """)
 
-# --- YAN MENÜ AYARLARI ---
+# --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
-    st.info("Sistem 3 aşamalı (Altın-Gümüş-Bronz) çözüm dener.")
-    MAX_DENEME_SAYISI = st.slider("Aşama Başına Deneme Sayısı", 100, 5000, 500)
-    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=15.0)
+    MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme", 100, 5000, 1000)
+    HER_DENEME_SURESI = st.number_input("Her Deneme Süresi (sn)", value=20.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (YENİ SÜTUNLAR EKLENDİ) ---
+# --- 1. VERİ ŞABLONU ---
 def temiz_veri_sablonu():
-    # Bu veri seti önceki sohbetlerden derlenen tam veri setidir.
-    # Üzerine 'Unvan' ve 'OzelIstek' sütunları eklenmiştir.
-    
+    # Önceki veriler aynen korunuyor
     raw_data = [
         # TURİZM
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -59,7 +55,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4907", "HocaAdi": "Öğr. Gör. Ümit KONAÇ", "OrtakDersID": ""},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4821", "HocaAdi": "Öğr.Gör.İsmail Zeki DİKİCİ", "OrtakDersID": ""},
 
-        # EKONOMİ
+        # EKONOMİ VE FİNANS
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "KAY 1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -168,74 +164,70 @@ def temiz_veri_sablonu():
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4515", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
     ]
     
-    # Tüm veriler için yeni sütunları boş olarak ekleyelim
+    # Kullanıcı için boş sütunlar
     for item in raw_data:
-        item["ZorunluGun"] = "" 
+        item["ZorunluGun"] = ""
         item["ZorunluSeans"] = ""
-        item["Unvan"] = "" # Kullanıcı dolduracak (Prof, Doc, vs.)
-        item["OzelIstek"] = "" # Kullanıcı dolduracak (PZT_SAL, ARDISIK_3)
+        item["Unvan"] = ""
+        item["OzelIstek"] = ""
 
     df = pd.DataFrame(raw_data)
-    
-    # Sütun sırasını belirleyelim
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", "ZorunluGun", "ZorunluSeans", "OrtakDersID"]
     df = df[cols]
     
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    
-    # Excel'e yazalım
     df.to_excel(writer, index=False, sheet_name='Dersler')
     
+    # Sütun Genişliği
     worksheet = writer.sheets['Dersler']
-    worksheet.set_column('A:I', 18) # Sütun genişlikleri
+    worksheet.set_column('A:I', 20)
     
     writer.close()
     return output.getvalue()
 
-# --- 2. ANA ÇÖZÜCÜ (AKILLI TAVİZ MEKANİZMASI İLE) ---
+# --- 2. ÇÖZÜCÜ (V28 Logic) ---
 def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
-    """
-    zorluk_seviyesi:
-    1: Altın Mod (Tüm özel istekleri uygula)
-    2: Gümüş Mod (Sadece Prof/Doç isteklerini uygula)
-    3: Bronz Mod (Sadece çakışma kurallarını uygula)
-    """
     model = cp_model.CpModel()
     
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
     seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
     
-    # --- VERİ HAZIRLIĞI ---
     tum_dersler = []
     ders_detaylari = {}
     hoca_dersleri = {}
     bolum_sinif_dersleri = {} 
     ortak_ders_gruplari = {}
     hoca_yukleri = {}
-    hoca_bilgileri = {} 
+    hoca_bilgileri = {}
 
-    # 1. Hoca Yük ve Bilgi Analizi
+    # YÜK HESAPLAMA (Düzeltildi)
+    # Ortak dersleri (Unique ID'si olanları) tek say
+    unique_load_tracker = {} # {HocaAdi: Set(OrtakID veya Index)}
+
     for index, row in df_veri.iterrows():
         hoca = str(row['HocaAdi']).strip()
         oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
         
-        # Yeni sütunları oku (Yoksa varsayılan ata)
+        # Ek bilgi
         unvan = str(row['Unvan']).strip() if 'Unvan' in df_veri.columns and pd.notna(row['Unvan']) else "OgrGor"
         istek = str(row['OzelIstek']).strip() if 'OzelIstek' in df_veri.columns and pd.notna(row['OzelIstek']) else ""
-        
         hoca_bilgileri[hoca] = {'unvan': unvan, 'istek': istek}
 
-        if hoca not in hoca_yukleri: hoca_yukleri[hoca] = set()
-        if oid: hoca_yukleri[hoca].add(oid)
-        else: hoca_yukleri[hoca].add(f"DERS_{index}")
-            
-    for h in hoca_yukleri:
-        hoca_yukleri[h] = len(hoca_yukleri[h])
+        if hoca not in unique_load_tracker: unique_load_tracker[hoca] = set()
+        
+        if oid:
+            unique_load_tracker[hoca].add(oid) # Ortak dersler 1 tane sayılır
+        else:
+            unique_load_tracker[hoca].add(f"UNIQUE_{index}") # Unique ders
+    
+    # Yükleri sayıya dök
+    for h in unique_load_tracker:
+        hoca_yukleri[h] = len(unique_load_tracker[h])
 
-    # 2. Ders Detaylarını Oluştur
+    # Dersleri Model İçin Hazırla
     for index, row in df_veri.iterrows():
-        d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}"
+        d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}" 
         hoca = str(row['HocaAdi']).strip()
         bolum = str(row['Bolum']).strip()
         sinif = int(row['Sinif'])
@@ -260,9 +252,9 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
 
     # --- DEĞİŞKENLER ---
     program = {}
-    ortak_ders_degiskenleri = [] 
+    ortak_ders_degiskenleri = []
     
-    hoca_gun_var = {}
+    hoca_gun_var = {} # hoca_gun_var[hoca][gun_index]
     for h in hoca_dersleri:
         hoca_gun_var[h] = []
         for g_idx in range(5):
@@ -283,13 +275,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
     if ortak_ders_degiskenleri:
         model.AddDecisionStrategy(ortak_ders_degiskenleri, cp_model.CHOOSE_FIRST, cp_model.SELECT_MIN_VALUE)
 
-    # --- TEMEL KISITLAR (HER ZAMAN GEÇERLİ) ---
+    # --- KISITLAR ---
     
-    # 1. Her ders haftada 1 kez
+    # 1. Her ders 1 kez
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
 
-    # 2. Zorunlu Gün/Saat (Excel'den manuel girilenler - Katı Kural)
+    # 2. Zorunlu Alanlar (Varsa)
     for d in tum_dersler:
         detay = ders_detaylari[d]
         if detay['z_gun']:
@@ -301,9 +293,8 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # 3. Hoca Çakışması ve Günlük Limit
+    # 3. Hoca Çakışması
     for hoca, dersler in hoca_dersleri.items():
-        # Unique görevleri bul (Ortak dersleri tekilleştir)
         hoca_gorevleri = []
         islenen_oidler = set()
         for d in dersler:
@@ -316,6 +307,10 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 hoca_gorevleri.append(d)
         
         yuk = hoca_yukleri[hoca]
+        
+        # Günlük Limit
+        # Yük <= 3 ise günde 1 ders
+        # Yük >= 4 ise günde 2 ders
         gunluk_limit = 1 if yuk <= 3 else 2
         
         for g in gunler:
@@ -323,48 +318,53 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri) <= 1)
             model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri for s in seanslar) <= gunluk_limit)
 
-        # 4. Hoca Gün Yayılımı (Genel Kural: Yükü kadar gün, max 3)
-        hedef_gun = min(yuk, 3)
-        model.Add(sum(hoca_gun_var[hoca]) == hedef_gun)
+        # 4. HOCA GÜN YAYILIMI (CRITICAL FIX)
+        # Altın(1) ve Gümüş(2) modda kesin kurallar uygulanır.
+        # Bronz(3) modda esnetilir.
         
-        # --- AKILLI TAVİZ MEKANİZMASI (ÖZEL İSTEKLER) ---
+        hedef_gun = 0
+        if yuk == 1: hedef_gun = 1
+        elif yuk == 2: hedef_gun = 2
+        elif yuk >= 3: hedef_gun = 3 
+        
+        if zorluk_seviyesi <= 2:
+            model.Add(sum(hoca_gun_var[hoca]) == hedef_gun)
+        else:
+            # Bronz modda 4 dersi 2 güne (2+2) sıkıştırmaya izin ver
+            if yuk >= 4:
+                model.Add(sum(hoca_gun_var[hoca]) >= 2) 
+            else:
+                model.Add(sum(hoca_gun_var[hoca]) == yuk)
+
+        # 5. ÖZEL İSTEKLER
         unvan = hoca_bilgileri[hoca]['unvan']
         istek = hoca_bilgileri[hoca]['istek']
         
         kural_uygula = False
-        if zorluk_seviyesi == 1:
-            kural_uygula = True # Altın Mod: Herkes
+        if zorluk_seviyesi == 1: kural_uygula = True
         elif zorluk_seviyesi == 2:
-            # Gümüş Mod: Sadece Prof/Doç
-            if any(u in unvan for u in ["Prof", "Doç", "Doc"]):
-                kural_uygula = True
-        
-        if kural_uygula and istek:
+            if any(u in unvan for u in ["Prof", "Doç", "Doc"]): kural_uygula = True
             
-            # Senaryo A: Sabit Günler (Örn: PZT_SAL_CAR)
-            if "_" in istek and "ARDISIK" not in istek:
+        if kural_uygula and istek:
+            if "_" in istek and "ARDISIK" not in istek: # PZT_SAL
                 istenilen_gunler = []
                 if "PZT" in istek: istenilen_gunler.append(0)
                 if "SAL" in istek: istenilen_gunler.append(1)
                 if "CAR" in istek: istenilen_gunler.append(2)
                 if "PER" in istek: istenilen_gunler.append(3)
                 if "CUM" in istek: istenilen_gunler.append(4)
-                
                 for g_idx in range(5):
-                    if g_idx not in istenilen_gunler:
-                        model.Add(hoca_gun_var[hoca][g_idx] == 0)
-                        
-            # Senaryo B: Ardışık Gün (ARDISIK_3)
-            elif "ARDISIK" in istek:
-                if yuk > 1:
-                    ilk = model.NewIntVar(0, 4, f'ilk_{hoca}')
-                    son = model.NewIntVar(0, 4, f'son_{hoca}')
-                    model.AddMinEquality(ilk, [g * hoca_gun_var[hoca][g] + 99 * (1 - hoca_gun_var[hoca][g]) for g in range(5)])
-                    model.AddMaxEquality(son, [g * hoca_gun_var[hoca][g] for g in range(5)])
-                    # Tam bitişik olması için (Son - İlk + 1 == Gün Sayısı)
-                    model.Add(son - ilk + 1 == sum(hoca_gun_var[hoca]))
+                    if g_idx not in istenilen_gunler: model.Add(hoca_gun_var[hoca][g_idx] == 0)
+            
+            elif "ARDISIK" in istek and yuk > 1:
+                ilk = model.NewIntVar(0, 4, f'ilk_{hoca}')
+                son = model.NewIntVar(0, 4, f'son_{hoca}')
+                model.AddMinEquality(ilk, [g * hoca_gun_var[hoca][g] + 99 * (1 - hoca_gun_var[hoca][g]) for g in range(5)])
+                model.AddMaxEquality(son, [g * hoca_gun_var[hoca][g] for g in range(5)])
+                # Kesin bitişik
+                model.Add(son - ilk + 1 == sum(hoca_gun_var[hoca]))
         else:
-            # Kural uygulanmıyorsa varsayılan tolerans (Max 1 gün boşluk)
+            # Varsayılan: Max 1 gün boşluk (Pzt-Çarş olabilir ama Pzt-Cuma olamaz)
             if yuk > 1:
                 ilk = model.NewIntVar(0, 4, f'ilk_std_{hoca}')
                 son = model.NewIntVar(0, 4, f'son_std_{hoca}')
@@ -372,14 +372,12 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 model.AddMaxEquality(son, [g * hoca_gun_var[hoca][g] for g in range(5)])
                 model.Add(son - ilk + 1 <= hedef_gun + 1)
 
-    # 5. SINIF ÇAKIŞMA KORUMASI (V25'in Çelik Zırhı)
+    # 6. SINIF ÇAKIŞMASI (ÇELİK ZIRH)
     for (bolum, sinif), dersler in bolum_sinif_dersleri.items():
-        # Günlük toplam yük
         for g in gunler:
              gunluk_toplam = sum(program[(d, g, s)] for d in dersler for s in seanslar)
              model.Add(gunluk_toplam <= 2)
 
-        # Pairwise Çakışma Kontrolü (Aynı sınıfın iki dersi aynı anda olamaz)
         n = len(dersler)
         for i in range(n):
             for j in range(i + 1, n):
@@ -387,13 +385,12 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 d2 = dersler[j]
                 oid1 = ders_detaylari[d1]['oid']
                 oid2 = ders_detaylari[d2]['oid']
-                # Ortak ders değilse çakışamazlar
                 if not ((oid1 is not None) and (oid1 == oid2)):
                     for g in gunler:
                         for s in seanslar:
                             model.Add(program[(d1, g, s)] + program[(d2, g, s)] <= 1)
 
-    # 6. DİKEY ÇAKIŞMA (V24 - Alttan Ders)
+    # 7. DİKEY ÇAKIŞMA (ALTTAN DERS)
     tum_bolumler = set(d['bolum'] for d in ders_detaylari.values())
     for bolum in tum_bolumler:
         for sinif in [1, 2, 3]:
@@ -404,11 +401,10 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 dersler_ust = bolum_sinif_dersleri[ust_sinif_key]
                 for g in gunler:
                     for s in seanslar:
-                        # 1. sınıf dersi + 2. sınıf dersi <= 1
                         top = sum(program[(d, g, s)] for d in dersler_alt) + sum(program[(d, g, s)] for d in dersler_ust)
                         model.Add(top <= 1)
 
-    # 7. Ortak Ders Senkronizasyonu
+    # 8. ORTAK DERS
     for oid, dlist in ortak_ders_gruplari.items():
         ref = dlist[0]
         for other in dlist[1:]:
@@ -416,7 +412,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 for s in seanslar:
                     model.Add(program[(ref, g, s)] == program[(other, g, s)])
 
-    # --- ÇÖZÜCÜ ÇALIŞTIRMA ---
+    # ÇÖZ
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = HER_DENEME_SURESI
     solver.parameters.num_search_workers = 8 
@@ -431,9 +427,9 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
 # --- ARAYÜZ ---
 col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button("📥 V27 Şablonu İndir (İstek Sütunlu)", temiz_veri_sablonu(), "Ders_Sablonu_V27.xlsx")
+    st.download_button("📥 Güncel Şablon İndir (V28)", temiz_veri_sablonu(), "Ders_Sablonu_V28.xlsx")
 
-uploaded_file = st.file_uploader("Doldurulan Excel'i Yükleyin", type=['xlsx'])
+uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
 if uploaded_file and st.button("🚀 Programı Hesapla"):
     df_input = pd.read_excel(uploaded_file)
@@ -441,11 +437,10 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
     final_cozum = None
     basari_seviyesi = ""
     
-    # 3 Aşamalı Döngü
     seviyeler = [
-        (1, "🥇 ALTIN MOD (Tüm İstekler)"),
-        (2, "🥈 GÜMÜŞ MOD (Sadece Prof/Doç)"),
-        (3, "🥉 BRONZ MOD (Sadece Zorunlu Kurallar)")
+        (1, "🥇 ALTIN MOD (Tüm Kurallar + İstekler)"),
+        (2, "🥈 GÜMÜŞ MOD (Sadece Prof/Doç İstekleri)"),
+        (3, "🥉 BRONZ MOD (Kurallar Esnetildi)")
     ]
     
     pbar = st.progress(0)
@@ -465,29 +460,25 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
                 bulundu = True
                 break
             
-            # İlerleme çubuğu (Her seviye %33)
             base_prog = (sev_id - 1) * 0.33
             step_prog = (i / MAX_DENEME_SAYISI) * 0.33
             pbar.progress(min(base_prog + step_prog, 1.0))
             
-        if bulundu:
-            break
+        if bulundu: break
             
     if final_cozum:
         st.success(f"✅ Çözüm Bulundu! Kullanılan Seviye: **{basari_seviyesi}**")
-        
         solver, program, tum_dersler, ders_detaylari = final_cozum
         gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
         seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
         
         output = io.BytesIO()
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
-        
         bolumler = sorted(list(set(d['bolum'] for d in ders_detaylari.values())))
         
         for b in bolumler:
             sheet_name = str(b)[:30]
-            # V26 Formatı (Matris)
+            # Matris Formatı
             data_map = {s: {g: {1:"", 2:"", 3:"", 4:""} for g in gunler} for s in seanslar}
 
             for d in tum_dersler:
@@ -517,10 +508,10 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
             ws = writer.sheets[sheet_name]
             fmt = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
             ws.set_column('A:B', 12)
-            ws.set_column('C:F', 25, fmt)
+            ws.set_column('C:F', 22, fmt)
 
         writer.close()
         st.balloons()
-        st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_V27.1.xlsx")
+        st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_V28.xlsx")
     else:
-        st.error("❌ Çözüm Bulunamadı. Kısıtlar çok katı olabilir.")
+        st.error("❌ Çözüm Bulunamadı. Kısıtlar birbirine çok zıt olabilir.")
