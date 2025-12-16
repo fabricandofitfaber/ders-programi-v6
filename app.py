@@ -7,7 +7,47 @@ import random
 import re
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı (Prestige)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı (Signature Edition)", layout="wide")
+
+# --- CSS İLE ŞIK İMZA EKLEME (SİHİRLİ DOKUNUŞ) ---
+# Bu kısım, Google Fonts'tan 'Dancing Script' adlı el yazısı fontunu çeker
+# ve sayfanın sağ alt köşesine sabit bir imza ekler.
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&display=swap');
+
+    .signature-container {
+        position: fixed;
+        bottom: 15px;
+        right: 25px;
+        z-index: 9999; /* En üstte dursun */
+        pointer-events: none; /* Sayfadaki butonlara tıklamaya engel olmasın */
+        text-align: right;
+    }
+
+    .signature-text {
+        font-family: 'Dancing Script', cursive; /* El yazısı fontu */
+        font-size: 28px;
+        color: #888888; /* Silik, prestijli bir gri */
+        text-shadow: 1px 1px 2px rgba(255,255,255,0.5); /* Hafif beyaz gölge ile derinlik */
+        opacity: 0.7; /* Biraz şeffaflık */
+        transform: rotate(-5deg); /* Hafif bir eğim vererek dinamikleştir */
+    }
+    
+    .signature-subtext {
+         font-family: sans-serif;
+         font-size: 10px;
+         color: #AAAAAA;
+         margin-top: -5px;
+         opacity: 0.6;
+    }
+    </style>
+    
+    <div class="signature-container">
+        <div class="signature-text">AOÖ</div>
+        <div class="signature-subtext">Designed with precision</div>
+    </div>
+""", unsafe_allow_html=True)
 
 st.title("🎓 FİF Akademik Ders Programı Oluşturucu")
 st.markdown("""
