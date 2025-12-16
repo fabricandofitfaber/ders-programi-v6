@@ -7,53 +7,43 @@ import random
 import re
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı (Final)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı (Fiziksel Sınırlı)", layout="wide")
 
-st.title("🎓FİF Akademik Ders Programı Oluşturucu")
+st.title("🎓FİF Akademik Ders Programı Oluşturucu ")
 st.markdown("""
-Bu sistem; **Çakışma Önleme, Hoca Yükü Dengeleme, Alttan Ders Koruması ve Akıllı İsim Tanıma** özelliklerine sahip tam kapsamlı bir çözümleyicidir.
+Bu sistem; **Çakışma Önleme, Hoca Yükü Dengeleme, Alttan Ders Koruması, Akıllı İsim Tanıma ve DERSLİK KAPASİTESİ** özelliklerine sahip tam kapsamlı bir çözümleyicidir.
+Hafta sonuna konulan ve asenkron işlenen dersler bulunmaz.
 Sol menüden **'Örnek Şablonu İndir'** diyerek, içinde kullanım rehberi olan Excel dosyasını alabilirsiniz.
 """)
 
 # --- YARDIMCI FONKSİYON: İSİM NORMALLEŞTİRME ---
 def normalize_name(raw_name):
-    """
-    Unvanları, noktaları ve fazla boşlukları temizler.
-    Örn: "Doç. Dr. Ali Naci" -> "ALI NACI"
-    """
     if not isinstance(raw_name, str):
         return "BILINMEYEN"
-    
-    # Türkçe karakter düzeltme
     rep = {"ğ": "G", "Ğ": "G", "ü": "U", "Ü": "U", "ş": "S", "Ş": "S", "ı": "I", "İ": "I", "ö": "O", "Ö": "O", "ç": "C", "Ç": "C"}
     text = raw_name
     for k, v in rep.items():
         text = text.replace(k, v)
     text = text.upper()
-    
-    # Unvan temizliği
     unvanlar = ["PROF.", "DOC.", "DR.", "ARS.", "GOR.", "OGR.", "UYESI", "YRD.", "DOC", "PROF", "DR", "ARS", "GOR"]
     for unv in unvanlar:
         text = text.replace(unv, "")
-    
-    # Noktalama ve boşluk temizliği
     text = re.sub(r'[^\w\s]', '', text)
     text = " ".join(text.split())
-    
     return text
 
-# --- PARAMETRELER (İSTEKLERE GÖRE DÜZENLENDİ) ---
+# --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
-    st.info("Sistem, en zor kısıtlardan başlayarak çözüm arar. Varsayılan ayarlar (50 Deneme / 60 Saniye) en verimli olanlardır.")
+    st.info("Sistem, en zor kısıtlardan başlayarak çözüm arar.")
     
-    # Min: 10, Max: 5000, Varsayılan: 50 (İdeal)
+    # YENİ EKLENEN KISIM: DERSLİK SAYISI
+    DERSLIK_KAPASITESI = st.number_input("Okuldaki Toplam Derslik Sayısı", value=10, min_value=1)
+    
     MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 10, 5000, 50)
-    
-    # Varsayılan: 60 Saniye (İdeal)
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=60.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (TAM LİSTE + GÜNCEL REHBER) ---
+# --- 1. VERİ ŞABLONU OLUŞTURUCU ---
 def temiz_veri_sablonu():
     raw_data = [
         # --- TURİZM ---
@@ -211,7 +201,7 @@ def temiz_veri_sablonu():
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", "ZorunluGun", "ZorunluSeans", "OrtakDersID"]
     df_dersler = df_dersler.reindex(columns=cols)
     
-    # --- SAYFA 2: KULLANIM REHBERİ (GÜNCELLENDİ: CAR EKLENDİ) ---
+    # --- SAYFA 2: KULLANIM REHBERİ (GÜNCEL) ---
     rehber_data = [
         ["Kolon", "Açıklama", "Kabul Edilen Değerler (Örnekler)"],
         ["Unvan", "Hocanın akademik unvanı. Çakışma durumunda 'Prof' ve 'Doç' isteklerine öncelik verilir.", "Prof. Dr., Doç. Dr., Dr. Öğr. Üyesi, Arş. Gör."],
@@ -219,7 +209,7 @@ def temiz_veri_sablonu():
         ["ZorunluGun", "Dersin kesinlikle olması gereken gün. Esnetilmez.", "Pazartesi, Salı, Çarşamba, Perşembe, Cuma"],
         ["ZorunluSeans", "Dersin kesinlikle olması gereken saat dilimi.", "Sabah, Öğle, OgledenSonra"],
         ["OrtakDersID", "Farklı bölümlerdeki dersleri birleştirir. Aynı ID'ye sahip dersler aynı saatte olur.", "ORT_MAT, ENF_101, YABANCI_DIL (Birebir aynı yazılmalı)"],
-        ["NOT", "Genel Kurallar", "1. Hocalar yüklerine göre 1, 2 veya 3 gün gelir.\n2. Aynı sınıfın dersleri çakışmaz.\n3. 4 dersi olan hoca 2 güne (2+2) sıkıştırılmaz, 3 güne yayılır."]
+        ["NOT", "Genel Kurallar", "1. Hocalar yüklerine göre 1, 2 veya 3 gün gelir.\n2. Aynı sınıfın dersleri çakışmaz.\n3. 4 dersi olan hoca 2 güne (2+2) sıkıştırılmaz, 3 güne yayılır.\n4. Fiziksel derslik kapasitesi (Sidebar'dan ayarlanır) aşılmaz."]
     ]
     df_rehber = pd.DataFrame(rehber_data[1:], columns=rehber_data[0])
 
@@ -246,7 +236,7 @@ def temiz_veri_sablonu():
     return output.getvalue()
 
 # --- 2. ANA ÇÖZÜCÜ ---
-def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
+def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi):
     model = cp_model.CpModel()
     
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
@@ -334,8 +324,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
         model.AddDecisionStrategy(ortak_ders_degiskenleri, cp_model.CHOOSE_FIRST, cp_model.SELECT_MIN_VALUE)
 
     # --- KISITLAR ---
+    
+    # 1. Her ders 1 kez
     for d in tum_dersler:
         model.Add(sum(program[(d, g, s)] for g in gunler for s in seanslar) == 1)
+
+    # 2. Zorunlu Alanlar
+    for d in tum_dersler:
         detay = ders_detaylari[d]
         if detay['z_gun']:
             for g in gunler:
@@ -346,7 +341,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 if s != detay['z_seans']:
                     for g in gunler: model.Add(program[(d, g, s)] == 0)
 
-    # Hoca Kısıtları
+    # 3. DERSLİK KAPASİTESİ (GLOBAL KAYNAK KISITI) - YENİ
+    for g_idx, g in enumerate(gunler):
+        for s in seanslar:
+            # O an (gün, saat) açık olan tüm derslerin toplamı <= Kapasite
+            model.Add(sum(program[(d, g, s)] for d in tum_dersler) <= derslik_kapasitesi)
+
+    # 4. Hoca Kısıtları (Çakışma, Yük, Gün)
     for hoca, dersler in hoca_dersleri.items():
         hoca_gorevleri = []
         islenen_oidler = set()
@@ -416,7 +417,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 model.AddMaxEquality(son, [g * hoca_gun_var[hoca][g] for g in range(5)])
                 model.Add(son - ilk + 1 <= 4)
 
-    # 4. Sınıf Çakışması
+    # 5. Sınıf ve Dikey Çakışma
     for (bolum, sinif), dersler in bolum_sinif_dersleri.items():
         for g in gunler:
              gunluk_toplam = sum(program[(d, g, s)] for d in dersler for s in seanslar)
@@ -434,7 +435,6 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                         for s in seanslar:
                             model.Add(program[(d1, g, s)] + program[(d2, g, s)] <= 1)
 
-    # 5. Dikey Çakışma
     tum_bolumler = set(d['bolum'] for d in ders_detaylari.values())
     for bolum in tum_bolumler:
         for sinif in [1, 2, 3]:
@@ -475,7 +475,7 @@ with col1:
 uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
 if uploaded_file and st.button("🚀 Programı Hesapla"):
-    # SADECE 'Dersler' sayfasını oku (Rehberi okuma)
+    # SADECE 'Dersler' sayfasını oku
     df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') 
     
     final_cozum = None
@@ -496,7 +496,8 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         
         for i in range(MAX_DENEME_SAYISI):
             seed = random.randint(0, 1000000)
-            sonuc, solver, program, tum_dersler, ders_detaylari = cozucu_calistir(df_input, seed, sev_id)
+            # DERSLIK KAPASITESINI sidebar'dan alıp gönderiyoruz (varsayılan 10)
+            sonuc, solver, program, tum_dersler, ders_detaylari = cozucu_calistir(df_input, seed, sev_id, DERSLIK_KAPASITESI)
             
             if sonuc:
                 final_cozum = (solver, program, tum_dersler, ders_detaylari)
@@ -557,4 +558,4 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         st.balloons()
         st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_Final.xlsx")
     else:
-        st.error("❌ Çözüm Bulunamadı.")
+        st.error("❌ Çözüm Bulunamadı. Kısıtlar birbirine çok zıt olabilir.")
