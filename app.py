@@ -7,13 +7,12 @@ import random
 import re
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı (Rehberli)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı (Final)", layout="wide")
 
 st.title("🎓FİF Akademik Ders Programı Oluşturucu")
 st.markdown("""
-Bu sistem, akademik kısıtları ve hoca konforunu dengeleyen yapay zeka destekli bir araçtır.
-Sol menüden **'Örnek Şablonu İndir'** butonuna tıklayarak Excel dosyasını alın. 
-**Dosyanın 2. sayfasında (KULLANIM_REHBERİ) nasıl doldurmanız gerektiği detaylıca yazmaktadır.**
+Bu sistem; **Çakışma Önleme, Hoca Yükü Dengeleme, Alttan Ders Koruması ve Akıllı İsim Tanıma** özelliklerine sahip tam kapsamlı bir çözümleyicidir.
+Sol menüden **'Örnek Şablonu İndir'** diyerek, içinde kullanım rehberi olan Excel dosyasını alabilirsiniz.
 """)
 
 # --- YARDIMCI FONKSİYON: İSİM NORMALLEŞTİRME ---
@@ -43,18 +42,21 @@ def normalize_name(raw_name):
     
     return text
 
-# --- PARAMETRELER ---
+# --- PARAMETRELER (İSTEKLERE GÖRE DÜZENLENDİ) ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
-    st.info("Sistem çözüm bulamazsa kuralları otomatik esnetir (Altın -> Gümüş -> Bronz Mod).")
-    MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 100, 5000, 2000)
-    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=30.0)
+    st.info("Sistem, en zor kısıtlardan başlayarak çözüm arar. Varsayılan ayarlar (50 Deneme / 60 Saniye) en verimli olanlardır.")
+    
+    # Min: 10, Max: 5000, Varsayılan: 50 (İdeal)
+    MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 10, 5000, 50)
+    
+    # Varsayılan: 60 Saniye (İdeal)
+    HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=60.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (REHBER EKLENDİ) ---
+# --- 1. VERİ ŞABLONU OLUŞTURUCU (TAM LİSTE + GÜNCEL REHBER) ---
 def temiz_veri_sablonu():
-    # --- SAYFA 1: DERSLER (DATA) ---
     raw_data = [
-        # TURİZM
+        # --- TURİZM ---
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "İŞL 1825", "HocaAdi": "Doç. Dr. Pelin ARSEZEN", "OrtakDersID": ""},
@@ -83,7 +85,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4907", "HocaAdi": "Öğr. Gör. Ümit KONAÇ", "OrtakDersID": ""},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4821", "HocaAdi": "Öğr.Gör.İsmail Zeki DİKİCİ", "OrtakDersID": ""},
 
-        # EKONOMİ VE FİNANS
+        # --- EKONOMİ VE FİNANS ---
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "KAY 1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -110,7 +112,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4503", "HocaAdi": "Doç. Dr. Ceren ORAL", "OrtakDersID": ""},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF4505", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": ""},
 
-        # İŞLETME
+        # --- İŞLETME ---
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1005", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1001", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
@@ -137,7 +139,7 @@ def temiz_veri_sablonu():
         {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4511", "HocaAdi": "Prof. Dr. Recai COŞKUN", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "ÇEİ4901", "HocaAdi": "Dr. Öğr. Üyesi Mehmet Ali AKKAYA", "OrtakDersID": ""},
 
-        # YBS
+        # --- YBS ---
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "KAY 1811", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "İŞL 1833", "HocaAdi": "Prof.Dr.İlknur KOCA", "OrtakDersID": ""},
@@ -162,7 +164,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4501", "HocaAdi": "Prof. Dr. Bilgin ŞENEL", "OrtakDersID": ""},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4509", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
 
-        # UTL
+        # --- UTL ---
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "UTL1005", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ATB1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -209,11 +211,11 @@ def temiz_veri_sablonu():
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", "ZorunluGun", "ZorunluSeans", "OrtakDersID"]
     df_dersler = df_dersler.reindex(columns=cols)
     
-    # --- SAYFA 2: KULLANIM REHBERİ ---
+    # --- SAYFA 2: KULLANIM REHBERİ (GÜNCELLENDİ: CAR EKLENDİ) ---
     rehber_data = [
         ["Kolon", "Açıklama", "Kabul Edilen Değerler (Örnekler)"],
         ["Unvan", "Hocanın akademik unvanı. Çakışma durumunda 'Prof' ve 'Doç' isteklerine öncelik verilir.", "Prof. Dr., Doç. Dr., Dr. Öğr. Üyesi, Arş. Gör."],
-        ["OzelIstek", "Hocanın gün tercihleri. Alt çizgi (_) ile ayrılmalıdır.", "PZT_SAL, SAL_PER_CUM, ARDISIK_3 (Peş peşe 3 gün), ARDISIK_2"],
+        ["OzelIstek", "Hocanın gün tercihleri. Alt çizgi (_) ile ayrılmalıdır.", "PZT_SAL, CAR_PER, SAL_PER_CUM, ARDISIK_3"],
         ["ZorunluGun", "Dersin kesinlikle olması gereken gün. Esnetilmez.", "Pazartesi, Salı, Çarşamba, Perşembe, Cuma"],
         ["ZorunluSeans", "Dersin kesinlikle olması gereken saat dilimi.", "Sabah, Öğle, OgledenSonra"],
         ["OrtakDersID", "Farklı bölümlerdeki dersleri birleştirir. Aynı ID'ye sahip dersler aynı saatte olur.", "ORT_MAT, ENF_101, YABANCI_DIL (Birebir aynı yazılmalı)"],
@@ -473,7 +475,8 @@ with col1:
 uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
 if uploaded_file and st.button("🚀 Programı Hesapla"):
-    df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') # Sadece veri sayfasını oku
+    # SADECE 'Dersler' sayfasını oku (Rehberi okuma)
+    df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') 
     
     final_cozum = None
     basari_seviyesi = ""
