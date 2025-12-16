@@ -9,7 +9,7 @@ import re
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Akademik Ders Programı (Signature Edition)", layout="wide")
 
-# --- CSS İLE ŞIK İMZA EKLEME (SİHİRLİ DOKUNUŞ) ---
+# --- CSS İLE ŞIK İMZA EKLEME (SİHİRLİ DOKUNUŞ - GÜNCELLENDİ) ---
 # Bu kısım, Google Fonts'tan 'Dancing Script' adlı el yazısı fontunu çeker
 # ve sayfanın sağ alt köşesine sabit bir imza ekler.
 st.markdown("""
@@ -18,7 +18,8 @@ st.markdown("""
 
     .signature-container {
         position: fixed;
-        bottom: 15px;
+        /* BURASI GÜNCELLENDİ: 15px yerine 80px yapıldı, yukarı taşındı */
+        bottom: 80px;
         right: 25px;
         z-index: 9999; /* En üstte dursun */
         pointer-events: none; /* Sayfadaki butonlara tıklamaya engel olmasın */
