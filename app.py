@@ -7,12 +7,13 @@ import random
 import re
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı (Master Sürüm)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı (Rehberli)", layout="wide")
 
-st.title("🎓FİF Akademik Ders Programı Oluşturucu")
+st.title("🎓 Akademik Ders Programı Oluşturucu (V32.0)")
 st.markdown("""
-Bu sistem; **Çakışma Önleme, Hoca Yükü Dengeleme, Alttan Ders Koruması ve Akıllı İsim Tanıma** özelliklerine sahip tam kapsamlı bir çözümleyicidir.
-Sol taraftaki menüden **'Örnek Şablonu İndir'** diyerek, içinde sizin derslerinizin ve örnek kısıtların olduğu Excel'i alabilirsiniz.
+Bu sistem, akademik kısıtları ve hoca konforunu dengeleyen yapay zeka destekli bir araçtır.
+Sol menüden **'Örnek Şablonu İndir'** butonuna tıklayarak Excel dosyasını alın. 
+**Dosyanın 2. sayfasında (KULLANIM_REHBERİ) nasıl doldurmanız gerektiği detaylıca yazmaktadır.**
 """)
 
 # --- YARDIMCI FONKSİYON: İSİM NORMALLEŞTİRME ---
@@ -45,15 +46,15 @@ def normalize_name(raw_name):
 # --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
-    st.info("Sistem, en zor kısıtlardan başlayarak (Altın Mod), çözüm bulamazsa kuralları hafifleterek (Bronz Mod) ilerler.")
+    st.info("Sistem çözüm bulamazsa kuralları otomatik esnetir (Altın -> Gümüş -> Bronz Mod).")
     MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 100, 5000, 2000)
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=30.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (TAM LİSTE + ÖRNEKLER) ---
+# --- 1. VERİ ŞABLONU OLUŞTURUCU (REHBER EKLENDİ) ---
 def temiz_veri_sablonu():
-    # Sizin verdiğiniz TAM LİSTE buradadır.
+    # --- SAYFA 1: DERSLER (DATA) ---
     raw_data = [
-        # --- TURİZM ---
+        # TURİZM
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "İŞL 1825", "HocaAdi": "Doç. Dr. Pelin ARSEZEN", "OrtakDersID": ""},
@@ -82,7 +83,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4907", "HocaAdi": "Öğr. Gör. Ümit KONAÇ", "OrtakDersID": ""},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4821", "HocaAdi": "Öğr.Gör.İsmail Zeki DİKİCİ", "OrtakDersID": ""},
 
-        # --- EKONOMİ VE FİNANS ---
+        # EKONOMİ VE FİNANS
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "KAY 1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -109,7 +110,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4503", "HocaAdi": "Doç. Dr. Ceren ORAL", "OrtakDersID": ""},
         {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF4505", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": ""},
 
-        # --- İŞLETME ---
+        # İŞLETME
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1005", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
         {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1001", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
@@ -136,7 +137,7 @@ def temiz_veri_sablonu():
         {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4511", "HocaAdi": "Prof. Dr. Recai COŞKUN", "OrtakDersID": ""},
         {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "ÇEİ4901", "HocaAdi": "Dr. Öğr. Üyesi Mehmet Ali AKKAYA", "OrtakDersID": ""},
 
-        # --- YBS ---
+        # YBS
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "KAY 1811", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "İŞL 1833", "HocaAdi": "Prof.Dr.İlknur KOCA", "OrtakDersID": ""},
@@ -161,7 +162,7 @@ def temiz_veri_sablonu():
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4501", "HocaAdi": "Prof. Dr. Bilgin ŞENEL", "OrtakDersID": ""},
         {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4509", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
 
-        # --- UTL ---
+        # UTL
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "UTL1005", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ATB1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
@@ -191,29 +192,53 @@ def temiz_veri_sablonu():
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4515", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
     ]
     
-    # 1. Tüm satırlar için boş sütunları oluşturalım
+    # 1. Boş kolonları oluştur
     for item in raw_data:
         if "Unvan" not in item: item["Unvan"] = ""
         if "OzelIstek" not in item: item["OzelIstek"] = ""
         if "ZorunluGun" not in item: item["ZorunluGun"] = ""
         if "ZorunluSeans" not in item: item["ZorunluSeans"] = ""
 
-    # 2. ÖRNEK VERİ ENJEKSİYONU (Kullanıcı Rehberi)
+    # 2. Örnek Veri Enjeksiyonu
     if len(raw_data) > 0: raw_data[0]["OzelIstek"] = "PZT_SAL" # Nurcan Hoca
     if len(raw_data) > 1: raw_data[1]["OzelIstek"] = "ARDISIK_3" # Feriha Hoca
     if len(raw_data) > 2: raw_data[2]["ZorunluGun"] = "Salı" # Pelin Hoca
     if len(raw_data) > 3: raw_data[3]["ZorunluSeans"] = "OgledenSonra" # Gamzegül Hoca
 
-    df = pd.DataFrame(raw_data)
+    df_dersler = pd.DataFrame(raw_data)
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", "ZorunluGun", "ZorunluSeans", "OrtakDersID"]
-    df = df.reindex(columns=cols)
+    df_dersler = df_dersler.reindex(columns=cols)
     
+    # --- SAYFA 2: KULLANIM REHBERİ ---
+    rehber_data = [
+        ["Kolon", "Açıklama", "Kabul Edilen Değerler (Örnekler)"],
+        ["Unvan", "Hocanın akademik unvanı. Çakışma durumunda 'Prof' ve 'Doç' isteklerine öncelik verilir.", "Prof. Dr., Doç. Dr., Dr. Öğr. Üyesi, Arş. Gör."],
+        ["OzelIstek", "Hocanın gün tercihleri. Alt çizgi (_) ile ayrılmalıdır.", "PZT_SAL, SAL_PER_CUM, ARDISIK_3 (Peş peşe 3 gün), ARDISIK_2"],
+        ["ZorunluGun", "Dersin kesinlikle olması gereken gün. Esnetilmez.", "Pazartesi, Salı, Çarşamba, Perşembe, Cuma"],
+        ["ZorunluSeans", "Dersin kesinlikle olması gereken saat dilimi.", "Sabah, Öğle, OgledenSonra"],
+        ["OrtakDersID", "Farklı bölümlerdeki dersleri birleştirir. Aynı ID'ye sahip dersler aynı saatte olur.", "ORT_MAT, ENF_101, YABANCI_DIL (Birebir aynı yazılmalı)"],
+        ["NOT", "Genel Kurallar", "1. Hocalar yüklerine göre 1, 2 veya 3 gün gelir.\n2. Aynı sınıfın dersleri çakışmaz.\n3. 4 dersi olan hoca 2 güne (2+2) sıkıştırılmaz, 3 güne yayılır."]
+    ]
+    df_rehber = pd.DataFrame(rehber_data[1:], columns=rehber_data[0])
+
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Dersler')
     
-    worksheet = writer.sheets['Dersler']
-    worksheet.set_column('A:I', 18)
+    df_dersler.to_excel(writer, index=False, sheet_name='Dersler')
+    df_rehber.to_excel(writer, index=False, sheet_name='KULLANIM_REHBERI')
+    
+    # Formatlama
+    wb = writer.book
+    ws_ders = writer.sheets['Dersler']
+    ws_rehber = writer.sheets['KULLANIM_REHBERI']
+    
+    fmt_wrap = wb.add_format({'text_wrap': True, 'valign': 'top'})
+    ws_ders.set_column('A:D', 20)
+    ws_ders.set_column('E:I', 15)
+    
+    ws_rehber.set_column('A:A', 15)
+    ws_rehber.set_column('B:B', 40, fmt_wrap)
+    ws_rehber.set_column('C:C', 40, fmt_wrap)
     
     writer.close()
     return output.getvalue()
@@ -233,7 +258,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
     hoca_yukleri = {}
     hoca_bilgileri = {}
 
-    # 1. Yük Hesaplama
+    # 1. HOCA NET YÜK HESAPLAMA
     unique_load_tracker = {} 
 
     for index, row in df_veri.iterrows():
@@ -241,18 +266,22 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
         hoca = normalize_name(raw_hoca)
         
         oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
+        
         unvan = str(row['Unvan']).strip() if 'Unvan' in df_veri.columns and pd.notna(row['Unvan']) else "OgrGor"
         istek = str(row['OzelIstek']).strip() if 'OzelIstek' in df_veri.columns and pd.notna(row['OzelIstek']) else ""
         
         hoca_bilgileri[hoca] = {'unvan': unvan, 'istek': istek, 'real_name': raw_hoca}
 
         if hoca not in unique_load_tracker: unique_load_tracker[hoca] = set()
-        if oid: unique_load_tracker[hoca].add(oid)
-        else: unique_load_tracker[hoca].add(f"UNIQUE_{index}")
+        
+        if oid:
+            unique_load_tracker[hoca].add(oid) # Ortak dersler tek sayılır
+        else:
+            unique_load_tracker[hoca].add(f"UNIQUE_{index}")
             
     hoca_yukleri = {h: len(unique_load_tracker[h]) for h in unique_load_tracker}
 
-    # 2. Ders Oluşturma
+    # 2. DERSLERİ OLUŞTUR
     for index, row in df_veri.iterrows():
         d_id = f"{index}_{row['Bolum']}_{row['DersKodu']}" 
         
@@ -330,7 +359,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
         
         yuk = hoca_yukleri[hoca]
         
-        # Günlük Limit: Yük <=3 ise 1 ders, Yük >=4 ise 2 ders.
+        # Günlük Limit
         gunluk_limit = 1 if yuk <= 3 else 2
         
         for g_idx, g in enumerate(gunler):
@@ -341,17 +370,15 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
             gunluk_toplam = sum(gunluk_dersler)
             model.Add(gunluk_toplam <= gunluk_limit)
             
-            # ÇİFT YÖNLÜ BAĞLAMA (Ders Varsa 1, Yoksa 0)
             model.Add(gunluk_toplam > 0).OnlyEnforceIf(hoca_gun_var[hoca][g_idx])
             model.Add(gunluk_toplam == 0).OnlyEnforceIf(hoca_gun_var[hoca][g_idx].Not())
 
-        # GÜN YAYILIMI KURALI (TAVİZSİZ)
+        # GÜN YAYILIMI KURALI
         if zorluk_seviyesi <= 2:
             if yuk >= 3: model.Add(sum(hoca_gun_var[hoca]) >= 3)
             elif yuk == 2: model.Add(sum(hoca_gun_var[hoca]) == 2)
             else: model.Add(sum(hoca_gun_var[hoca]) == 1)
         else:
-            # Bronz Modda 4 dersi 2 güne sıkıştırabilir
             if yuk >= 4: model.Add(sum(hoca_gun_var[hoca]) >= 2)
             else: model.Add(sum(hoca_gun_var[hoca]) == yuk)
 
@@ -387,7 +414,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                 model.AddMaxEquality(son, [g * hoca_gun_var[hoca][g] for g in range(5)])
                 model.Add(son - ilk + 1 <= 4)
 
-    # Sınıf ve Dikey Çakışma
+    # 4. Sınıf Çakışması
     for (bolum, sinif), dersler in bolum_sinif_dersleri.items():
         for g in gunler:
              gunluk_toplam = sum(program[(d, g, s)] for d in dersler for s in seanslar)
@@ -405,6 +432,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                         for s in seanslar:
                             model.Add(program[(d1, g, s)] + program[(d2, g, s)] <= 1)
 
+    # 5. Dikey Çakışma
     tum_bolumler = set(d['bolum'] for d in ders_detaylari.values())
     for bolum in tum_bolumler:
         for sinif in [1, 2, 3]:
@@ -418,6 +446,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi):
                         top = sum(program[(d, g, s)] for d in dersler_alt) + sum(program[(d, g, s)] for d in dersler_ust)
                         model.Add(top <= 1)
 
+    # 6. Ortak Ders
     for oid, dlist in ortak_ders_gruplari.items():
         ref = dlist[0]
         for other in dlist[1:]:
@@ -444,7 +473,7 @@ with col1:
 uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
 if uploaded_file and st.button("🚀 Programı Hesapla"):
-    df_input = pd.read_excel(uploaded_file)
+    df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') # Sadece veri sayfasını oku
     
     final_cozum = None
     basari_seviyesi = ""
@@ -523,6 +552,6 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
 
         writer.close()
         st.balloons()
-        st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_Son.xlsx")
+        st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_Final.xlsx")
     else:
         st.error("❌ Çözüm Bulunamadı.")
