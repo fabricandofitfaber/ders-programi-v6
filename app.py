@@ -7,9 +7,9 @@ import random
 import re
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Akademik Ders Programı (Fiziksel Sınırlı)", layout="wide")
+st.set_page_config(page_title="Akademik Ders Programı (Prestige)", layout="wide")
 
-st.title("🎓FİF Akademik Ders Programı Oluşturucu ")
+st.title("🎓 FİF Akademik Ders Programı Oluşturucu")
 st.markdown("""
 Bu sistem; **Çakışma Önleme, Hoca Yükü Dengeleme, Alttan Ders Koruması, Akıllı İsim Tanıma ve DERSLİK KAPASİTESİ** özelliklerine sahip tam kapsamlı bir çözümleyicidir.
 Hafta sonuna konulan ve asenkron işlenen dersler bulunmaz.
@@ -37,7 +37,6 @@ with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
     st.info("Sistem, en zor kısıtlardan başlayarak çözüm arar.")
     
-    # YENİ EKLENEN KISIM: DERSLİK SAYISI
     DERSLIK_KAPASITESI = st.number_input("Okuldaki Toplam Derslik Sayısı", value=10, min_value=1)
     
     MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 10, 5000, 50)
@@ -548,11 +547,41 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
             df_out = pd.DataFrame(rows_list)
             df_out.to_excel(writer, sheet_name=sheet_name, index=False)
             
+            # --- PRESTIGE FORMAT (Clean & Zebra) ---
             wb = writer.book
             ws = writer.sheets[sheet_name]
-            fmt = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
+            
+            # Formatlar
+            fmt_header = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#D9D9D9'})
+            fmt_white = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#FFFFFF'})
+            fmt_gray = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#F2F2F2'})
+            
+            # Sütun Genişliği
             ws.set_column('A:B', 12)
-            ws.set_column('C:F', 25, fmt)
+            ws.set_column('C:F', 25)
+            
+            # 1. Başlıkları Yaz (Elle) - Satır 0
+            headers = ["Gün", "Seans", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf"]
+            for col_num, val in enumerate(headers):
+                ws.write(0, col_num, val, fmt_header)
+                
+            # 2. Verileri Yaz (Zebra Deseni ile)
+            # df_out satırları 0'dan 14'e kadar (toplam 15 satır)
+            for r_idx, row_data in df_out.iterrows():
+                # Hangi gün olduğunu bul (Her gün 3 seans)
+                day_idx = r_idx // 3
+                
+                # Tek/Çift gün kontrolü (0=Pzt(Beyaz), 1=Salı(Gri), 2=Çar(Beyaz)...)
+                current_fmt = fmt_white if day_idx % 2 == 0 else fmt_gray
+                
+                # Hücreleri yaz (Excel'de satır r_idx + 1 çünkü başlık var)
+                excel_row = r_idx + 1
+                ws.write(excel_row, 0, row_data["Gün"], current_fmt)
+                ws.write(excel_row, 1, row_data["Seans"], current_fmt)
+                ws.write(excel_row, 2, row_data["1. Sınıf"], current_fmt)
+                ws.write(excel_row, 3, row_data["2. Sınıf"], current_fmt)
+                ws.write(excel_row, 4, row_data["3. Sınıf"], current_fmt)
+                ws.write(excel_row, 5, row_data["4. Sınıf"], current_fmt)
 
         writer.close()
         st.balloons()
