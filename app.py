@@ -9,7 +9,7 @@ import re
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Akademik Ders Programı (Rehberli)", layout="wide")
 
-st.title("🎓 Akademik Ders Programı Oluşturucu (V32.0)")
+st.title("🎓FİF Akademik Ders Programı Oluşturucu")
 st.markdown("""
 Bu sistem, akademik kısıtları ve hoca konforunu dengeleyen yapay zeka destekli bir araçtır.
 Sol menüden **'Örnek Şablonu İndir'** butonuna tıklayarak Excel dosyasını alın. 
