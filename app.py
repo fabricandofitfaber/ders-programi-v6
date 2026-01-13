@@ -79,7 +79,7 @@ with st.sidebar:
         help="Aktif edilirse Cuma günü öğle seansına hiçbir ders konulmaz"
     )
     
-    # 🆕 GÜNLÜK LİMİT STRATEJİSİ
+    # GÜNLÜK LİMİT STRATEJİSİ
     st.markdown("---")
     GUNLUK_LIMIT_STRATEJISI = st.radio(
         "📅 Hoca Günlük Ders Limiti",
@@ -91,16 +91,145 @@ with st.sidebar:
     MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 10, 5000, 50)
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=60.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (İYİLEŞTİRİLMİŞ REHBER) ---
+# --- 1. VERİ ŞABLONU OLUŞTURUCU (TÜM DERSLER) ---
 def temiz_veri_sablonu():
     raw_data = [
-        # --- TURİZM (İlk 5 satır örnek olarak) ---
+        # --- TURİZM (TAM LİSTE) ---
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "İŞL 1825", "HocaAdi": "Doç. Dr. Pelin ARSEZEN", "OrtakDersID": ""},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "İŞL 1803", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_MAT_EKF"},
         {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "KAY 1805", "HocaAdi": "Dr.Öğr.Üyesi Sevda YAŞAR COŞKUN", "OrtakDersID": "ORT_HUKUK_TEMEL_UTL"},
-        # ... (geri kalan 135 satır aynı kalacak, kısa tutmak için atlanıyor)
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "İKT 1809", "HocaAdi": "Doç.Dr. Ali Rıza AKTAŞ", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 1, "DersKodu": "TUİ 1007", "HocaAdi": "Doç. Dr. Hakan KİRACI", "OrtakDersID": "ORT_MUH_UTL_TUR"},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2507", "HocaAdi": "Dr. Öğr. Üyesi Cemal ARTUN", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2503", "HocaAdi": "Prof. Dr. Ayşe ÇELİK YETİM", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2009", "HocaAdi": "Doç.Dr. Ali Naci KARABULUT", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2501", "HocaAdi": "Arş. Gör. Dr. Doğan ÇAPRAK", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2001", "HocaAdi": "Doç. Dr. Onur AKBULUT", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 2, "DersKodu": "TUİ 2011", "HocaAdi": "Doç. Dr. Pelin ARSEZEN", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "TUİ 3013", "HocaAdi": "Doç. Dr. Onur AKBULUT", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "TUİ 3011", "HocaAdi": "Arş. Gör. Dr. Doğan ÇAPRAK", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "TUİ 3009", "HocaAdi": "Doç. Dr. Pelin ARSEZEN", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "ORD0080", "HocaAdi": "Doç. Dr. Arzu AKDENİZ", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "TUİ 3509", "HocaAdi": "Prof.Dr. Ayşe ÇELİK YETİM", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "İSG 3901", "HocaAdi": "Öğr.Gör.Mümin GÜMÜŞLÜ", "OrtakDersID": "ORT_ISG"},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 3, "DersKodu": "YDB 3809", "HocaAdi": "Öğr.Gör.İsmail Zeki DİKİCİ", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "TUİ 4539", "HocaAdi": "Arş.Gör.Dr. Doğan ÇAPRAK", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "TUİ 4525", "HocaAdi": "Prof.Dr. Ayşe Çelik YETİM", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "TUİ 4005", "HocaAdi": "Dr. Öğr. Üyesi Cemal ARTUN", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "TUİ 4515", "HocaAdi": "Doç. Dr. Onur AKBULUT", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "TUİ 4533", "HocaAdi": "Doç. Dr. Ali Naci KARABULUT", "OrtakDersID": "ORT_MARKA"},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4907", "HocaAdi": "Öğr. Gör. Ümit KONAÇ", "OrtakDersID": ""},
+        {"Bolum": "Turizm İşletmeciliği", "Sinif": 4, "DersKodu": "YDB 4821", "HocaAdi": "Öğr.Gör.İsmail Zeki DİKİCİ", "OrtakDersID": ""},
+        
+        # --- EKONOMİ VE FİNANS (TAM LİSTE) ---
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "KAY 1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ENF 1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "EKF 1003", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_MAT_EKF"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "EKF 1001", "HocaAdi": "Doç. Dr. Ali Rıza AKTAŞ", "OrtakDersID": "ORT_EKONOMI_1"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "İŞL1827", "HocaAdi": "Dr. Öğr. Üyesi Cemal ARTUN", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 1, "DersKodu": "İŞL1829", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": "ORT_FIN_MUH"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "EKF 2005", "HocaAdi": "Doç. Dr. Ceren ORAL", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "EKF 2009", "HocaAdi": "Dr. Öğr. Üyesi Mehmet Ali AKKAYA", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "EKF 2007", "HocaAdi": "Dr. Öğr. Üyesi Özgül UYAN", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "EKF 2003", "HocaAdi": "Öğr. Gör. Dr. Nergis ÜNLÜ", "OrtakDersID": "ORT_MAKRO"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "İŞL 2819", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_ISTATISTIK"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 2, "DersKodu": "EKF 2001", "HocaAdi": "Doç. Dr. Aynur YILDIRIM", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "İŞL 3907", "HocaAdi": "Prof. Dr. Faruk ŞAHİN", "OrtakDersID": "ORT_ULUS_ISL"},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "İŞL 3901", "HocaAdi": "Dr. Öğr. Üyesi Sevda COŞKUN", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "EKF 3511", "HocaAdi": "Doç. Dr. Ceren ORAL", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "EKF 3001", "HocaAdi": "Öğr. Gör. Dr. Nergis ÜNLÜ", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "EKF 3005", "HocaAdi": "Dr. Öğr. Üyesi Ali Osman ÖZTOP", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 3, "DersKodu": "EKF 3003", "HocaAdi": "Doç. Dr. Aynur YILDIRIM", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "İŞL4911", "HocaAdi": "Doç. Dr. Fatma ÇAKMAK", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4003", "HocaAdi": "Öğr. Gör. Dr. Yahya NAS", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4507", "HocaAdi": "Dr. Öğr. Üyesi Ali Osman ÖZTOP", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4001", "HocaAdi": "Doç. Dr. Aynur YILDIRIM", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF 4503", "HocaAdi": "Doç. Dr. Ceren ORAL", "OrtakDersID": ""},
+        {"Bolum": "Ekonomi ve Finans", "Sinif": 4, "DersKodu": "EKF4505", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": ""},
+        
+        # --- İŞLETME (TAM LİSTE) ---
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1005", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.Feriha Meral KALAY", "OrtakDersID": "ORT_ENF_ISL_TUR"},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1001", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "ATB1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB_ISL"},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "KAY1805", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İKT1801", "HocaAdi": "Öğr. Gör. Dr. Yahya NAS", "OrtakDersID": "ORT_IKT_GIRIS"},
+        {"Bolum": "İşletme", "Sinif": 1, "DersKodu": "İŞL1003", "HocaAdi": "Prof. Dr. Ali Ender ALTUNOĞLU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2005", "HocaAdi": "Prof. Dr. Recai COŞKUN", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2003", "HocaAdi": "Öğr. Gör. Dr. Hatice CENGER", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2007", "HocaAdi": "Doç. Dr. Ali Naci KARABULUT", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İKT2803", "HocaAdi": "Öğr. Gör. Dr. Nergis ÜNLÜ", "OrtakDersID": "ORT_MAKRO"},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2001", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_ISTATISTIK"},
+        {"Bolum": "İşletme", "Sinif": 2, "DersKodu": "İŞL2009", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İŞL3003", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_SAYISAL"},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İŞL3503", "HocaAdi": "Prof. Dr. Recai COŞKUN", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İKT3905", "HocaAdi": "Dr. Öğr. Üyesi Mehmet Ali AKKAYA", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İŞL3515", "HocaAdi": "Doç. Dr. Ali Naci KARABULUT", "OrtakDersID": "ORT_MARKA"},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İŞL3001", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 3, "DersKodu": "İŞL3005", "HocaAdi": "Öğr. Gör. Dr. Hatice CENGER", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4003", "HocaAdi": "Öğr. Gör. Dr. Hatice CENGER", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4001", "HocaAdi": "Doç. Dr. Fatma ÇAKMAK", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4523", "HocaAdi": "Prof. Dr. Ali Ender ALTUNOĞLU", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4521", "HocaAdi": "Doç. Dr. Fatma ÇAKMAK", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "İŞL4511", "HocaAdi": "Prof. Dr. Recai COŞKUN", "OrtakDersID": ""},
+        {"Bolum": "İşletme", "Sinif": 4, "DersKodu": "ÇEİ4901", "HocaAdi": "Dr. Öğr. Üyesi Mehmet Ali AKKAYA", "OrtakDersID": ""},
+        
+        # --- YBS (TAM LİSTE) ---
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "KAY 1811", "HocaAdi": "Doç. Dr. Nagehan KIRKBEŞOĞLU", "OrtakDersID": "ORT_HUKUK_GENEL"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "ATB 1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "İŞL 1833", "HocaAdi": "Prof.Dr.İlknur KOCA", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "İŞL 1837", "HocaAdi": "Doç.Dr.Muhammet DAMAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "YBS 1001", "HocaAdi": "Dr. Öğretim Üyesi İsmail BAĞCI", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 1, "DersKodu": "İŞL 1835", "HocaAdi": "Prof. Dr. Mine ŞENEL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "YBS 2001", "HocaAdi": "Doç.Dr.Muhammet DAMAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "YBS 2003", "HocaAdi": "Prof. Dr. Bilgin ŞENEL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "YBS 2511", "HocaAdi": "Doç. Dr. Muhammer İLKUÇAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "İKT 2813", "HocaAdi": "Öğr. Gör. Dr. Yahya NAS", "OrtakDersID": "ORT_IKT_GIRIS"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "İŞL 2827", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 2, "DersKodu": "İŞL 2829", "HocaAdi": "Arş. Gör. Dr. Ezgi KUYU", "OrtakDersID": "ORT_FIN_MUH"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "DersKodu": "İŞL 3809", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_SAYISAL"},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "DersKodu": "YBS 3511", "HocaAdi": "Doç. Dr. Evrim ERDOĞAN YAZAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "DersKodu": "İŞL 3001", "HocaAdi": "Prof. Dr. Mine ŞENEL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "DersKodu": "YBS 3505", "HocaAdi": "Dr.Öğr.Üyesi Murat SAKAL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 3, "DersKodu": "YBS 3003", "HocaAdi": "Dr. Öğretim Üyesi İsmail BAĞCI", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4001", "HocaAdi": "Doç. Dr. Muhammer İLKUÇAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4003", "HocaAdi": "Doç.Dr.Muhammet DAMAR", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4005", "HocaAdi": "Prof. Dr. Mine ŞENEL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4515", "HocaAdi": "Öğr.Gör. Cengiz Gök", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4501", "HocaAdi": "Prof. Dr. Bilgin ŞENEL", "OrtakDersID": ""},
+        {"Bolum": "Yönetim Bilişim Sistemleri", "Sinif": 4, "DersKodu": "YBS 4509", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
+        
+        # --- UTL (TAM LİSTE) ---
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ENF1805", "HocaAdi": "Öğr.Gör.İsmail BAĞCI", "OrtakDersID": "ORT_ENF_EKF_UTL"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "UTL1005", "HocaAdi": "Prof. Dr. İlknur KOCA", "OrtakDersID": "ORT_ISL_MAT"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "ATB1801", "HocaAdi": "Öğr.Gör.Nurcan KARA", "OrtakDersID": "ORT_ATB"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "İŞL1003", "HocaAdi": "Prof.Dr.Ali Ender ALTUNOĞLU", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "KAY1805", "HocaAdi": "Dr.Öğr.Üyesi Sevda YAŞAR COŞKUN", "OrtakDersID": "ORT_HUKUK_TEMEL_UTL"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "UTL1003", "HocaAdi": "Doç. Dr. Ali Rıza AKTAŞ", "OrtakDersID": "ORT_EKONOMI_1"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 1, "DersKodu": "UTL1001", "HocaAdi": "Doç.Dr. Evrim ERDOĞAN YAZAR", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2005", "HocaAdi": "Dr.Öğr.Üyesi Ali Rıza AKTAŞ", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2009", "HocaAdi": "Prof. Dr. Faruk ŞAHİN", "OrtakDersID": "ORT_ULUS_ISL"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2007", "HocaAdi": "Doç.Dr. Evrim ERDOĞAN YAZAR", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2503", "HocaAdi": "Dr.Öğr.Üyesi Sevda YAŞAR COŞKUN", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2003", "HocaAdi": "Prof. Dr. Derya ATLAY IŞIK", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "İŞL2001", "HocaAdi": "Arş. Gör. Dr. Gamzegül ÇALIKOĞLU", "OrtakDersID": "ORT_ISTATISTIK_YBS_UTL"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2011", "HocaAdi": "Doç. Dr. Hakan KİRACI", "OrtakDersID": "ORT_MUH_UTL_TUR"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 2, "DersKodu": "UTL2001", "HocaAdi": "Doç.Dr. Evrim ERDOĞAN YAZAR", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3003", "HocaAdi": "Prof. Dr. Derya ATLAY IŞIK", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3509", "HocaAdi": "Prof. Dr. Faruk ŞAHİN", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3001", "HocaAdi": "Doç. Dr. Hakan KİRACI", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3503", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3519", "HocaAdi": "Öğr.Gör.Cengiz GÖK", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 3, "DersKodu": "UTL3005", "HocaAdi": "Öğr.Gör.Dr.Göksel KARTUM", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4003", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4513", "HocaAdi": "Dr. Öğr. Üyesi Ali Osman ÖZTOP", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4001", "HocaAdi": "Doç. Dr. Hakan KİRACI", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4501", "HocaAdi": "Öğr.Gör.Cengiz GÖK", "OrtakDersID": ""},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4517", "HocaAdi": "Öğr.Gör.Mümin GÜMÜŞLÜ", "OrtakDersID": "ORT_ISG"},
+        {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4515", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
     ]
     
     # YENİ KOLONLAR
@@ -111,7 +240,7 @@ def temiz_veri_sablonu():
         if "ZorunluSeans" not in item: item["ZorunluSeans"] = ""
         if "IstenmezenGun" not in item: item["IstenmezenGun"] = ""
         if "IstenmezenSeans" not in item: item["IstenmezenSeans"] = ""
-        if "TekGunSenkron" not in item: item["TekGunSenkron"] = ""  # 🆕 YENİ ÖZELLIK
+        if "TekGunSenkron" not in item: item["TekGunSenkron"] = ""
     
     # ÖRNEK VERİ
     if len(raw_data) > 0: 
@@ -122,7 +251,7 @@ def temiz_veri_sablonu():
         raw_data[1]["IstenmezenSeans"] = "Sabah"
     if len(raw_data) > 2: 
         raw_data[2]["ZorunluGun"] = "Salı"
-        raw_data[2]["TekGunSenkron"] = "EVET"  # 🆕 Pelin Hoca tek günde tamamlasın
+        raw_data[2]["TekGunSenkron"] = "EVET"
     if len(raw_data) > 3: 
         raw_data[3]["ZorunluSeans"] = "OgledenSonra"
     
@@ -132,7 +261,7 @@ def temiz_veri_sablonu():
             "TekGunSenkron", "OrtakDersID"]
     df_dersler = df_dersler.reindex(columns=cols)
     
-    # 🎨 İYİLEŞTİRİLMİŞ KULLANIM REHBERİ (3 SAYFA)
+    # İYİLEŞTİRİLMİŞ KULLANIM REHBERİ (3 SAYFA)
     
     # SAYFA 1: TEMEL KULLANIM
     rehber_temel = [
@@ -240,6 +369,7 @@ def temiz_veri_sablonu():
     writer.close()
     return output.getvalue()
 
+# ... (Devam edecek - çakışma analizi ve çözücü fonksiyonları aynı kalacak)
 # --- 2. ÇAKIŞMA ANALİZÖRÜ (YENİ) ---
 def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     """Çözüm bulunamazsa hangi kısıtların sorunlu olduğunu tespit eder"""
@@ -289,8 +419,8 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     # 3. CUMA ÖĞLE + ZORUNLU SEANS ÇAKIŞMASI
     if cuma_ogle_yasak:
         cuma_ogle_zorunlu = df_veri[
-            (df_veri['ZorunluGun'].str.strip() == 'Cuma') & 
-            (df_veri['ZorunluSeans'].str.strip() == 'Öğle')
+            (df_veri.get('ZorunluGun', pd.Series(dtype='object')).fillna('').str.strip() == 'Cuma') & 
+            (df_veri.get('ZorunluSeans', pd.Series(dtype='object')).fillna('').str.strip() == 'Öğle')
         ]
         if len(cuma_ogle_zorunlu) > 0:
             kritik_sorunlar.append(f"🔴 KRİTİK: {len(cuma_ogle_zorunlu)} ders Cuma Öğle'ye zorunlu atanmış ama Cuma Öğle yasak!")
@@ -338,7 +468,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         istenmeyen_gun = str(row['IstenmezenGun']).strip() if 'IstenmezenGun' in df_veri.columns and pd.notna(row['IstenmezenGun']) and str(row['IstenmezenGun']).strip() in gunler else None
         istenmeyen_seans = str(row['IstenmezenSeans']).strip() if 'IstenmezenSeans' in df_veri.columns and pd.notna(row['IstenmezenSeans']) and str(row['IstenmezenSeans']).strip() in seanslar else None
         
-        # 🆕 TEK GÜN SENKRON
+        # TEK GÜN SENKRON
         tek_gun_senkron = False
         if 'TekGunSenkron' in df_veri.columns and pd.notna(row['TekGunSenkron']):
             if str(row['TekGunSenkron']).strip().upper() == 'EVET':
@@ -350,7 +480,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
             'real_name': raw_hoca,
             'istenmeyen_gun': istenmeyen_gun,
             'istenmeyen_seans': istenmeyen_seans,
-            'tek_gun_senkron': tek_gun_senkron  # 🆕
+            'tek_gun_senkron': tek_gun_senkron
         }
         
         if hoca not in unique_load_tracker: 
@@ -460,7 +590,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         for d in tum_dersler:
             model.Add(program[(d, 'Cuma', 'Öğle')] == 0)
     
-    # 🆕 2d. TEK GÜN SENKRON (YENİ ÖZELLIK)
+    # 2d. TEK GÜN SENKRON (YENİ ÖZELLIK)
     for hoca, dersler in hoca_dersleri.items():
         if hoca_bilgileri[hoca]['tek_gun_senkron'] and hoca_yukleri[hoca] == 2:
             # 2 dersi de aynı günde olmalı
@@ -509,7 +639,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         
         yuk = hoca_yukleri[hoca]
         
-        # 🆕 GÜNLÜK LİMİT STRATEJİSİ
+        # GÜNLÜK LİMİT STRATEJİSİ
         if gunluk_limit_stratejisi == "Esnek (Verimli)":
             gunluk_limit = 2 if yuk <= 3 else 3
         else:  # Katı
@@ -625,7 +755,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
     # SOLVER AYARLARI (İYİLEŞTİRİLMİŞ TIMEOUT)
     solver = cp_model.CpSolver()
     
-    # 🆕 AŞAMALI TIMEOUT STRATEJİSİ
+    # AŞAMALI TIMEOUT STRATEJİSİ
     timeout = 30 if deneme_id % 50 < 10 else (60 if deneme_id % 50 < 30 else 120)
     solver.parameters.max_time_in_seconds = timeout
     solver.parameters.num_search_workers = 8 
@@ -648,7 +778,7 @@ uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 if uploaded_file and st.button("🚀 Programı Hesapla"):
     df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') 
     
-    # 🆕 ÇAKIŞMA ANALİZİ ÖN KONTROLÜ
+    # ÇAKIŞMA ANALİZİ ÖN KONTROLÜ
     st.info("🔍 Veri analiz ediliyor...")
     kritik_sorunlar, uyarilar = cakisma_analizi(df_input, DERSLIK_KAPASITESI, CUMA_OGLE_YASAK)
     
@@ -768,12 +898,12 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         st.balloons()
         st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_Final.xlsx")
     else:
-        # 🆕 DETAYLI HATA ANALİZİ
+        # DETAYLI HATA ANALİZİ
         st.error("❌ Çözüm Bulunamadı. Detaylı Analiz:")
         
         st.markdown("### 📊 Sorun Giderme Önerileri (Öncelik Sırasına Göre)")
         
-        st.markdown("""
+        st.markdown(f"""
         #### 1️⃣ **EN ÖNCELİKLİ: Zorunlu Kısıtları Azaltın**
         - ⛔ **Zorunlu Gün** sayısını azaltın (bu kısıt esnetilemez!)
         - ⛔ **Zorunlu Seans** sayısını azaltın
@@ -797,7 +927,6 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         
         #### 6️⃣ **Son Çare: Cuma Öğle Yasağını Kaldırın**
         - 🕌 Eğer aktifse, Sidebar'dan kapatın
-        """.format(DERSLIK_KAPASITESI=DERSLIK_KAPASITESI))
+        """)
         
-        # Hangi seviyede kaldığını göster
         st.info(f"💡 Program **{seviyeler[-1][1]}** seviyesine kadar denedi ama çözüm bulamadı.")
