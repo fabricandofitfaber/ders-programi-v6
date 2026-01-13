@@ -64,6 +64,35 @@ def normalize_name(raw_name):
     text = " ".join(text.split())
     return text
 
+# --- YARDIMCI FONKSİYON: İSTENMEYEN GÜNLERİ PARSE ET ---
+def parse_istenmeyen_gunler(gun_str):
+    """PZT_CUM veya Pazartesi formatlarını parse eder"""
+    if not gun_str:
+        return []
+    
+    gun_str = str(gun_str).strip().upper()
+    gunler_tam = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+    istenmeyen_gunler = []
+    
+    # Önce tam gün adı kontrolü (büyük/küçük harf duyarsız)
+    for gun in gunler_tam:
+        if gun.upper() == gun_str or gun.lower() == gun_str.lower():
+            return [gun]  # Tek gün bulundu
+    
+    # PZT_CUM formatı parse et
+    if "PZT" in gun_str:
+        istenmeyen_gunler.append("Pazartesi")
+    if "SAL" in gun_str:
+        istenmeyen_gunler.append("Salı")
+    if "CAR" in gun_str or "ÇAR" in gun_str:
+        istenmeyen_gunler.append("Çarşamba")
+    if "PER" in gun_str:
+        istenmeyen_gunler.append("Perşembe")
+    if "CUM" in gun_str:
+        istenmeyen_gunler.append("Cuma")
+    
+    return istenmeyen_gunler
+
 # --- PARAMETRELER ---
 with st.sidebar:
     st.header("⚙️ Simülasyon Ayarları")
@@ -76,7 +105,7 @@ with st.sidebar:
     CUMA_OGLE_YASAK = st.checkbox(
         "🕌 Cuma Öğle Seansına Ders Koyma (Cuma Namazı)",
         value=False,
-        help="Aktif edilirse Cuma günü öğle seansına hiçbir ders konulmaz"
+        help="Aktif edilirse Cuma günü 11:30 seansına TÜM BÖLÜMLERDE hiçbir ders konulmaz. Cuma 08:30 ve 14:30 seansları normal çalışır."
     )
     
     # GÜNLÜK LİMİT STRATEJİSİ
@@ -242,20 +271,20 @@ def temiz_veri_sablonu():
         if "TekGunSenkron" not in item: item["TekGunSenkron"] = ""
     
     # ÖRNEK VERİ
-    if len(raw_data) > 0: 
+    if len(raw_data) > 0:
         raw_data[0]["OzelIstek"] = "PZT_SAL"
-        raw_data[0]["Istenmeyen Gun"] = "Cuma"
-    if len(raw_data) > 1: 
+        raw_data[0]["Istenmeyen Gun"] = "PZT_CUM"  # ✅ Birden fazla istenmeyen gün örneği
+    if len(raw_data) > 1:
         raw_data[1]["OzelIstek"] = "ARDISIK_3"
         raw_data[1]["Istenmeyen Seans"] = "08:30"
-    if len(raw_data) > 2: 
+    if len(raw_data) > 2:
         raw_data[2]["ZorunluGun"] = "Perşembe"
         raw_data[2]["ZorunluSeans"] = "08:30"
         raw_data[2]["TekGunSenkron"] = "EVET"
     
     df_dersler = pd.DataFrame(raw_data)
-    cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", 
-            "ZorunluGun", "ZorunluSeans", "Istenmeyen Gun", "Istenmeyen Seans", 
+    cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek",
+            "ZorunluGun", "ZorunluSeans", "Istenmeyen Gun", "Istenmeyen Seans",
             "TekGunSenkron", "OrtakDersID"]
     df_dersler = df_dersler.reindex(columns=cols)
     
@@ -274,30 +303,31 @@ def temiz_veri_sablonu():
     gun_yazim = [
         ["🎯 KOLON", "📖 NE YAZILIR", "✅ DOĞRU ÖRNEK", "❌ YANLIŞ ÖRNEK"],
         ["OzelIstek (İstenen Günler)", "PZT, SAL, CAR, PER, CUM (Alt çizgi ile)", "PZT_SAL (Pazartesi veya Salı)", "Pazartesi_Salı"],
-        ["OzelIstek (İstenen Günler)", "Birden fazla gün için alt çizgi ile ayırın", "SAL_CAR_PER (Salı, Çarşamba veya Perşembe)", "Salı Çarşamba Perşembe"],
+        ["OzelIstek (Birden fazla)", "Alt çizgi ile ayırın", "SAL_CAR_PER (Salı, Çarşamba veya Perşembe)", "Salı Çarşamba"],
         ["OzelIstek (Ardışık)", "ARDISIK_X (X = gün sayısı)", "ARDISIK_3 (3 ardışık gün)", "ARDISIK 3"],
-        ["ZorunluGun", "Tam gün adı (Büyük/küçük harf fark etmez)", "Pazartesi", "PZT"],
+        ["ZorunluGun", "Tam gün adı", "Pazartesi", "PZT"],
         ["ZorunluSeans", "08:30, 11:30, 14:30", "08:30 (Sabah)", "Sabah"],
-        ["Istenmeyen Gun", "Tam gün adı (SADECE 1 GÜN!)", "Cuma", "PZT_CUM"],
+        ["Istenmeyen Gun", "Tam gün adı VEYA PZT_CUM formatı", "Cuma VEYA PZT_CUM", "Cuma Pazartesi"],
         ["Istenmeyen Seans", "08:30, 11:30, 14:30 (SADECE 1 SAAT!)", "11:30 (Öğle)", "08:30 11:30"],
-        ["TekGunSenkron", "EVET veya boş (Sadece 2 dersi olanlar için)", "EVET", "Evet"],
+        ["TekGunSenkron", "EVET veya boş", "EVET", "Evet"],
     ]
     
-    # GÜN KISALTMALARI TABLOSU
+    # GÜN KISALTMALARI
     gun_kisalt = [
         ["GÜN ADI", "KISALTMA", "KULLANIM YERİ"],
-        ["Pazartesi", "PZT", "OzelIstek kolonunda"],
-        ["Salı", "SAL", "OzelIstek kolonunda"],
-        ["Çarşamba", "CAR", "OzelIstek kolonunda"],
-        ["Perşembe", "PER", "OzelIstek kolonunda"],
-        ["Cuma", "CUM", "OzelIstek kolonunda"],
+        ["Pazartesi", "PZT", "OzelIstek ve Istenmeyen Gun"],
+        ["Salı", "SAL", "OzelIstek ve Istenmeyen Gun"],
+        ["Çarşamba", "CAR", "OzelIstek ve Istenmeyen Gun"],
+        ["Perşembe", "PER", "OzelIstek ve Istenmeyen Gun"],
+        ["Cuma", "CUM", "OzelIstek ve Istenmeyen Gun"],
         ["", "", ""],
         ["TAM GÜN ADLARI", "NE YAZILIR", "KULLANIM YERİ"],
-        ["Pazartesi gelmesin", "Pazartesi", "Istenmeyen Gun kolonunda"],
-        ["Salı gelmesin", "Salı", "Istenmeyen Gun kolonunda"],
-        ["Çarşamba gelmesin", "Çarşamba", "Istenmeyen Gun kolonunda"],
-        ["Perşembe gelmesin", "Perşembe", "Istenmeyen Gun kolonunda"],
-        ["Cuma gelmesin", "Cuma", "Istenmeyen Gun kolonunda"],
+        ["Pazartesi gelmesin", "Pazartesi", "Istenmeyen Gun"],
+        ["Salı gelmesin", "Salı", "Istenmeyen Gun"],
+        ["Çarşamba gelmesin", "Çarşamba", "Istenmeyen Gun"],
+        ["Perşembe gelmesin", "Perşembe", "Istenmeyen Gun"],
+        ["Cuma gelmesin", "Cuma", "Istenmeyen Gun"],
+        ["Pazartesi VE Cuma gelmesin", "PZT_CUM", "Istenmeyen Gun"],
         ["", "", ""],
         ["SEANS SAATLERİ", "NE YAZILIR", "KULLANIM YERİ"],
         ["Sabah (08:30)", "08:30", "ZorunluSeans veya Istenmeyen Seans"],
@@ -305,16 +335,17 @@ def temiz_veri_sablonu():
         ["Öğleden Sonra (14:30)", "14:30", "ZorunluSeans veya Istenmeyen Seans"],
     ]
     
-    # ÖRNEKLER SAYFASI
+    # ÖRNEKLER
     ornekler = [
         ["DURUM", "OzelIstek", "ZorunluGun", "ZorunluSeans", "Istenmeyen Gun", "Istenmeyen Seans", "SONUÇ"],
         ["Pazartesi veya Salı istiyor", "PZT_SAL", "", "", "", "", "Sadece Pazartesi VEYA Salı günlerinde olur"],
         ["Cuma gelmesin", "", "", "", "Cuma", "", "Cuma günü hiç ders yok"],
+        ["Pazartesi VE Cuma gelmesin", "", "", "", "PZT_CUM", "", "Pazartesi ve Cuma günleri hiç ders yok"],
         ["Sabah istemiyorum", "", "", "", "", "08:30", "Sabah (08:30) hiç ders yok"],
         ["Mutlaka Perşembe Sabah", "", "Perşembe", "08:30", "", "", "⛔ Kesinlikle Perşembe 08:30'da olur"],
-        ["Pzt/Sal istiyorum, Sabah istemiyorum", "PZT_SAL", "", "", "", "08:30", "Pazartesi veya Salı günlerinde + Sabah seansında değil"],
-        ["2 dersim tek günde olsun", "", "", "", "", "", "TekGunSenkron: EVET yaz (Sadece 2 dersi olanlar için)"],
-        ["Ardışık 3 gün", "ARDISIK_3", "", "", "", "", "Pazartesi-Salı-Çarşamba gibi 3 ardışık günde olur"],
+        ["Pzt/Sal istiyorum, Cuma istemiyorum", "PZT_SAL", "", "", "Cuma", "", "Pazartesi veya Salı + Cuma'da değil"],
+        ["2 dersim tek günde", "", "", "", "", "", "TekGunSenkron: EVET"],
+        ["Ardışık 3 gün", "ARDISIK_3", "", "", "", "", "3 ardışık günde olur"],
     ]
     
     df_rehber_temel = pd.DataFrame(rehber_temel[1:], columns=rehber_temel[0])
@@ -341,6 +372,13 @@ def temiz_veri_sablonu():
     fmt_header = wb.add_format({'bold': True, 'bg_color': '#4472C4', 'font_color': 'white', 'text_wrap': True, 'valign': 'top'})
     fmt_wrap = wb.add_format({'text_wrap': True, 'valign': 'top'})
     
+    # ✅ FREEZE PANES - BAŞLIK SATIRINI DONDUR
+    ws_ders.freeze_panes(1, 0)  # İlk satır (başlıklar) sabit kalacak
+    ws_temel.freeze_panes(1, 0)
+    ws_yazim.freeze_panes(1, 0)
+    ws_kisalt.freeze_panes(1, 0)
+    ws_ornek.freeze_panes(1, 0)
+    
     ws_ders.set_column('A:D', 20)
     ws_ders.set_column('E:L', 18)
     
@@ -350,9 +388,7 @@ def temiz_veri_sablonu():
     
     writer.close()
     return output.getvalue()
-
-# DEVAM EDECEK...
-# --- 2. ÇAKIŞMA ANALİZÖRÜ ---
+    # --- 2. ÇAKIŞMA ANALİZÖRÜ ---
 def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     """Çözüm bulunamazsa hangi kısıtların sorunlu olduğunu tespit eder"""
     
@@ -379,24 +415,28 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     for _, row in df_veri.iterrows():
         hoca = normalize_name(str(row['HocaAdi']))
         if hoca not in hoca_istekleri:
-            hoca_istekleri[hoca] = {'real_name': str(row['HocaAdi']), 'istenen': None, 'istenmeyen': None}
+            hoca_istekleri[hoca] = {'real_name': str(row['HocaAdi']), 'istenen': None, 'istenmeyen': []}
         
         if pd.notna(row.get('OzelIstek')):
             hoca_istekleri[hoca]['istenen'] = str(row['OzelIstek']).strip().upper()
         if pd.notna(row.get('Istenmeyen Gun')):
-            hoca_istekleri[hoca]['istenmeyen'] = str(row['Istenmeyen Gun']).strip()
+            istenmeyen_gunler = parse_istenmeyen_gunler(str(row['Istenmeyen Gun']))
+            hoca_istekleri[hoca]['istenmeyen'] = istenmeyen_gunler
     
     for hoca, bilgi in hoca_istekleri.items():
         if bilgi['istenen'] and bilgi['istenmeyen']:
             istenen_gunler = []
-            if "PZT" in bilgi['istenen']: istenen_gunler.append("Pazartesi")
-            if "SAL" in bilgi['istenen']: istenen_gunler.append("Salı")
-            if "CAR" in bilgi['istenen']: istenen_gunler.append("Çarşamba")
-            if "PER" in bilgi['istenen']: istenen_gunler.append("Perşembe")
-            if "CUM" in bilgi['istenen']: istenen_gunler.append("Cuma")
+            istek_str = bilgi['istenen']
+            if "PZT" in istek_str: istenen_gunler.append("Pazartesi")
+            if "SAL" in istek_str: istenen_gunler.append("Salı")
+            if "CAR" in istek_str: istenen_gunler.append("Çarşamba")
+            if "PER" in istek_str: istenen_gunler.append("Perşembe")
+            if "CUM" in istek_str: istenen_gunler.append("Cuma")
             
-            if bilgi['istenmeyen'] in istenen_gunler:
-                kritik_sorunlar.append(f"🔴 KRİTİK: {bilgi['real_name']} - İstenen günler içinde istenmeyen gün var!")
+            # İstenen ve istenmeyen çakışıyor mu?
+            cakisan_gunler = set(istenen_gunler) & set(bilgi['istenmeyen'])
+            if cakisan_gunler:
+                kritik_sorunlar.append(f"🔴 KRİTİK: {bilgi['real_name']} - İstenen günler içinde istenmeyen gün var: {', '.join(cakisan_gunler)}")
     
     # 3. CUMA ÖĞLE ÇAKIŞMASI
     if cuma_ogle_yasak:
@@ -420,7 +460,11 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     
     # 5. DERSLİK KAPASİTESİ
     toplam_ders = len(df_veri)
-    max_slot = 5 * 3 * derslik_kapasitesi
+    if cuma_ogle_yasak:
+        max_slot = (5 * 3 - 1) * derslik_kapasitesi  # Cuma öğle hariç
+    else:
+        max_slot = 5 * 3 * derslik_kapasitesi
+    
     if toplam_ders > max_slot * 0.85:
         uyarilar.append(f"⚠️ Derslik kapasitesi sınırda: {toplam_ders} ders, {max_slot} slot (doluluk %{(toplam_ders/max_slot)*100:.0f})")
     
@@ -451,12 +495,10 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         unvan = str(row.get('Unvan', 'OgrGor')).strip() if pd.notna(row.get('Unvan')) else "OgrGor"
         istek = str(row.get('OzelIstek', '')).strip().upper() if pd.notna(row.get('OzelIstek')) else ""
         
-        # İSTENMEYEN GÜN
-        istenmeyen_gun = None
+        # ✅ İSTENMEYEN GÜNLERİ PARSE ET (BİRDEN FAZLA DESTEĞİ)
+        istenmeyen_gunler = []
         if pd.notna(row.get('Istenmeyen Gun')):
-            gun_str = str(row['Istenmeyen Gun']).strip()
-            if gun_str in gunler:
-                istenmeyen_gun = gun_str
+            istenmeyen_gunler = parse_istenmeyen_gunler(str(row['Istenmeyen Gun']))
         
         # İSTENMEYEN SEANS
         istenmeyen_seans = None
@@ -475,7 +517,7 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                 'unvan': unvan,
                 'istek': istek,
                 'real_name': raw_hoca,
-                'istenmeyen_gun': istenmeyen_gun,
+                'istenmeyen_gunler': istenmeyen_gunler,  # ✅ Liste
                 'istenmeyen_seans': istenmeyen_seans,
                 'tek_gun_senkron': tek_gun_senkron
             }
@@ -582,22 +624,23 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                     for g in gunler:
                         model.Add(program[(d, g, s)] == 0)
     
-    # 2b. İSTENMEYEN GÜN/SEANS - DERS SEVİYESİNDE UYGULA
+    # 2b. ✅ İSTENMEYEN GÜNLER - DERS SEVİYESİNDE UYGULA (BİRDEN FAZLA GÜN DESTEĞİ)
     for d in tum_dersler:
         hoca = ders_detaylari[d]['hoca_key']
         hoca_info = hoca_bilgileri.get(hoca, {})
         
-        # İSTENMEYEN GÜN
-        if hoca_info.get('istenmeyen_gun'):
+        # İSTENMEYEN GÜNLER (Liste olarak)
+        istenmeyen_gunler = hoca_info.get('istenmeyen_gunler', [])
+        for istenmeyen_gun in istenmeyen_gunler:
             for s in seanslar:
-                model.Add(program[(d, hoca_info['istenmeyen_gun'], s)] == 0)
+                model.Add(program[(d, istenmeyen_gun, s)] == 0)
         
         # İSTENMEYEN SEANS
         if hoca_info.get('istenmeyen_seans'):
             for g in gunler:
                 model.Add(program[(d, g, hoca_info['istenmeyen_seans'])] == 0)
     
-    # 2c. CUMA ÖĞLE KISITI
+    # 2c. ✅ CUMA ÖĞLE KISITI - SADECE 11:30 YASAK (08:30 ve 14:30 serbest)
     if cuma_ogle_yasak:
         for d in tum_dersler:
             model.Add(program[(d, 'Cuma', '11:30')] == 0)
@@ -883,6 +926,9 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
             fmt_header = wb.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#D9D9D9'})
             fmt_white = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#FFFFFF'})
             fmt_gray = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#F2F2F2'})
+            
+            # ✅ FREEZE PANES - ÇIKTI DOSYASINDA DA BAŞLIK SABİT
+            ws.freeze_panes(1, 0)
             
             ws.set_column('A:B', 18)
             ws.set_column('C:F', 25)
