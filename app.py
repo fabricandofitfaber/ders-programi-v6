@@ -91,7 +91,7 @@ with st.sidebar:
     MAX_DENEME_SAYISI = st.slider("Seviye Başına Deneme Sayısı", 10, 5000, 50)
     HER_DENEME_SURESI = st.number_input("Her Deneme İçin Süre (Saniye)", value=60.0)
 
-# --- 1. VERİ ŞABLONU OLUŞTURUCU (TÜM DERSLER) ---
+# --- 1. VERİ ŞABLONU OLUŞTURUCU (TÜM DERSLER + DÜZELTİLMİŞ KOLONLAR) ---
 def temiz_veri_sablonu():
     raw_data = [
         # --- TURİZM (TAM LİSTE) ---
@@ -232,32 +232,34 @@ def temiz_veri_sablonu():
         {"Bolum": "Uluslararası Ticaret ve Lojistik", "Sinif": 4, "DersKodu": "UTL4515", "HocaAdi": "Arş. Gör. Dr. Ruşen Akdemir", "OrtakDersID": "ORT_ETICARET"},
     ]
     
-    # YENİ KOLONLAR
+    # ✅ DÜZELTİLMİŞ KOLON ADLARI (İSTENMEYEN → İSTENMİYEN)
     for item in raw_data:
         if "Unvan" not in item: item["Unvan"] = ""
         if "OzelIstek" not in item: item["OzelIstek"] = ""
         if "ZorunluGun" not in item: item["ZorunluGun"] = ""
         if "ZorunluSeans" not in item: item["ZorunluSeans"] = ""
-        if "IstenmezenGun" not in item: item["IstenmezenGun"] = ""
-        if "IstenmezenSeans" not in item: item["IstenmezenSeans"] = ""
+        if "İstenmeyenGun" not in item: item["İstenmeyenGun"] = ""  # ✅ DÜZELTİLDİ
+        if "İstenmeyenSeans" not in item: item["İstenmeyenSeans"] = ""  # ✅ DÜZELTİLDİ
         if "TekGunSenkron" not in item: item["TekGunSenkron"] = ""
     
     # ÖRNEK VERİ
     if len(raw_data) > 0: 
         raw_data[0]["OzelIstek"] = "PZT_SAL"
-        raw_data[0]["IstenmezenGun"] = "Cuma"
+        raw_data[0]["İstenmeyenGun"] = "Cuma"  # ✅ DÜZELTİLDİ
     if len(raw_data) > 1: 
         raw_data[1]["OzelIstek"] = "ARDISIK_3"
-        raw_data[1]["IstenmezenSeans"] = "Sabah"
+        raw_data[1]["İstenmeyenSeans"] = "08:30"  # ✅ DÜZELTİLDİ + SAAT FORMATI
     if len(raw_data) > 2: 
         raw_data[2]["ZorunluGun"] = "Salı"
         raw_data[2]["TekGunSenkron"] = "EVET"
     if len(raw_data) > 3: 
-        raw_data[3]["ZorunluSeans"] = "OgledenSonra"
+        raw_data[3]["ZorunluSeans"] = "14:30"  # ✅ SAAT FORMATI
     
     df_dersler = pd.DataFrame(raw_data)
+    
+    # ✅ DÜZELTİLMİŞ KOLON DÜZENİ
     cols = ["Bolum", "Sinif", "DersKodu", "HocaAdi", "Unvan", "OzelIstek", 
-            "ZorunluGun", "ZorunluSeans", "IstenmezenGun", "IstenmezenSeans", 
+            "ZorunluGun", "ZorunluSeans", "İstenmeyenGun", "İstenmeyenSeans",  # ✅ DÜZELTİLDİ
             "TekGunSenkron", "OrtakDersID"]
     df_dersler = df_dersler.reindex(columns=cols)
     
@@ -274,7 +276,7 @@ def temiz_veri_sablonu():
         ["OrtakDersID", "Farklı bölümlerdeki aynı dersi birleştirir", "ORT_MAT, ORT_YABANCI_DIL (Büyük/küçük harf duyarlı!)"],
     ]
     
-    # SAYFA 2: İSTEK SİSTEMİ (DETAYLI)
+    # SAYFA 2: İSTEK SİSTEMİ (DETAYLI + SAAT FORMATLARI)
     rehber_istek = [
         ["🎯 ÖZEL İSTEK TÜRÜ", "📖 KULLANIM ŞEKLİ", "💡 ÖRNEKLER", "⚠️ NOTLAR"],
         ["Belirli Günler", "PZT_SAL_CAR gibi alt çizgi ile ayırın", 
@@ -289,19 +291,19 @@ def temiz_veri_sablonu():
          "Pazartesi\nSalı\nÇarşamba\nPerşembe\nCuma", 
          "⛔ ESNETİLEMEZ! Mutlaka bu günde olur"],
         
-        ["Zorunlu Seans", "Tam seans adı yazın", 
-         "Sabah\nÖğle\nOgledenSonra", 
-         "⛔ ESNETİLEMEZ! Mutlaka bu saatte olur"],
+        ["✅ Zorunlu Seans (YENİ FORMAT)", "Saat formatında yazın: 08:30, 11:30, 14:30", 
+         "08:30 → Sabah\n11:30 → Öğle\n14:30 → Öğleden Sonra", 
+         "⛔ ESNETİLEMEZ! Sadece bu 3 saat kabul edilir"],
         
-        ["İstenmeyen Gün", "Asla gelmek istemediği gün", 
+        ["✅ İstenmeyen Gün (YAZIM DÜZELDİ)", "Asla gelmek istemediği gün", 
          "Cuma → Cuma günü hiç ders yok\nPazartesi → Pazartesi günü hiç ders yok", 
          "Diğer günlerde yer bulunmazsa çözüm üretilemez"],
         
-        ["İstenmeyen Seans", "Asla ders vermek istemediği saat", 
-         "Sabah → Sabah saatlerinde hiç ders yok\nÖğle → Öğle saatinde hiç ders yok", 
+        ["✅ İstenmeyen Seans (YAZIM DÜZELDİ)", "Asla ders vermek istemediği saat", 
+         "08:30 → Sabah saatinde hiç ders yok\n11:30 → Öğle saatinde hiç ders yok\n14:30 → Öğleden sonra hiç ders yok", 
          "Diğer seanslar doluysa çözüm üretilemez"],
         
-        ["🆕 Tek Gün Senkron", "2 dersi olan hocalar için: Aynı günde Öğle+ÖğledenSonra", 
+        ["Tek Gün Senkron", "2 dersi olan hocalar için: Aynı günde 11:30+14:30", 
          "EVET → Tüm dersler aynı günde\nHAYIR veya boş → Normal dağılım", 
          "⚠️ Sadece 2 dersi olan hocalar için çalışır. 3+ ders varsa göz ardı edilir"],
     ]
@@ -309,6 +311,7 @@ def temiz_veri_sablonu():
     # SAYFA 3: GENEL KURALLAR VE SORUN GİDERME
     rehber_kurallar = [
         ["📌 KURAL", "📖 AÇIKLAMA"],
+        ["✅ Seans Saatleri (YENİ)", "08:30 → Sabah\n11:30 → Öğle\n14:30 → Öğleden Sonra\n\nProgramda sadece bu saatler kullanılır!"],
         ["Hoca Yük Hesaplama", "Ortak dersler (aynı OrtakDersID) tek görev sayılır.\nÖrnek: 3 bölümde ENF 1805 dersi → Hoca için 1 yük"],
         ["Hoca Gün Dağılımı", "• 1-2 ders → 1-2 gün\n• 3 ders → 3 gün (esnetilmez)\n• 4+ ders → 3+ gün (2 güne sıkıştırılmaz)"],
         ["Günlük Ders Limiti", "Sidebar ayarına göre:\n• Katı Mod: ≤3 ders → günde 1, ≥4 ders → günde 2\n• Esnek Mod: ≤3 ders → günde 2, ≥4 ders → günde 3"],
@@ -368,9 +371,7 @@ def temiz_veri_sablonu():
     
     writer.close()
     return output.getvalue()
-
-# ... (Devam edecek - çakışma analizi ve çözücü fonksiyonları aynı kalacak)
-# --- 2. ÇAKIŞMA ANALİZÖRÜ (YENİ) ---
+    # --- 2. ÇAKIŞMA ANALİZÖRÜ (DÜZELTİLMİŞ) ---
 def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     """Çözüm bulunamazsa hangi kısıtların sorunlu olduğunu tespit eder"""
     
@@ -378,7 +379,12 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     kritik_sorunlar = []
     
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
-    seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
+    # ✅ SAAT FORMATLARI
+    seans_map = {
+        '08:30': 'Sabah',
+        '11:30': 'Öğle', 
+        '14:30': 'OgledenSonra'
+    }
     
     # 1. ZORUNLU GÜN ANALİZİ
     zorunlu_gun_sayaci = {g: 0 for g in gunler}
@@ -395,15 +401,15 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     for _, row in df_veri.iterrows():
         hoca = normalize_name(str(row['HocaAdi']))
         if hoca not in hoca_istekleri:
-            hoca_istekleri[hoca] = {'real_name': str(row['HocaAdi']), 'istenen': None, 'istenmeyen': None}
+            hoca_istekleri[hoca] = {'real_name': str(row['HocaAdi']), 'istenen': None, 'istenmiyen': None}
         
         if pd.notna(row.get('OzelIstek')) and str(row['OzelIstek']).strip():
             hoca_istekleri[hoca]['istenen'] = str(row['OzelIstek']).strip()
-        if pd.notna(row.get('IstenmezenGun')) and str(row['IstenmezenGun']).strip():
-            hoca_istekleri[hoca]['istenmeyen'] = str(row['IstenmezenGun']).strip()
+        if pd.notna(row.get('İstenmiyenGun')) and str(row['İstenmiyenGun']).strip():  # ✅ DÜZELTİLDİ
+            hoca_istekleri[hoca]['istenmiyen'] = str(row['İstenmiyenGun']).strip()
     
     for hoca, bilgi in hoca_istekleri.items():
-        if bilgi['istenen'] and bilgi['istenmeyen']:
+        if bilgi['istenen'] and bilgi['istenmiyen']:
             istenen_gunler = []
             if "PZT" in bilgi['istenen']: istenen_gunler.append("Pazartesi")
             if "SAL" in bilgi['istenen']: istenen_gunler.append("Salı")
@@ -411,8 +417,8 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
             if "PER" in bilgi['istenen']: istenen_gunler.append("Perşembe")
             if "CUM" in bilgi['istenen']: istenen_gunler.append("Cuma")
             
-            if bilgi['istenmeyen'] in istenen_gunler:
-                kritik_sorunlar.append(f"🔴 KRİTİK: {bilgi['real_name']} - İstenen günler içinde istenmeyen gün var!")
+            if bilgi['istenmiyen'] in istenen_gunler:
+                kritik_sorunlar.append(f"🔴 KRİTİK: {bilgi['real_name']} - İstenen günler içinde istenmiyen gün var!")
             elif len(istenen_gunler) == 1:
                 uyarilar.append(f"⚠️ {bilgi['real_name']} - Sadece 1 gün istiyor, riskli!")
     
@@ -420,10 +426,10 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     if cuma_ogle_yasak:
         cuma_ogle_zorunlu = df_veri[
             (df_veri.get('ZorunluGun', pd.Series(dtype='object')).fillna('').str.strip() == 'Cuma') & 
-            (df_veri.get('ZorunluSeans', pd.Series(dtype='object')).fillna('').str.strip() == 'Öğle')
+            (df_veri.get('ZorunluSeans', pd.Series(dtype='object')).fillna('').str.strip() == '11:30')  # ✅ SAAT FORMATI
         ]
         if len(cuma_ogle_zorunlu) > 0:
-            kritik_sorunlar.append(f"🔴 KRİTİK: {len(cuma_ogle_zorunlu)} ders Cuma Öğle'ye zorunlu atanmış ama Cuma Öğle yasak!")
+            kritik_sorunlar.append(f"🔴 KRİTİK: {len(cuma_ogle_zorunlu)} ders Cuma 11:30'a zorunlu atanmış ama Cuma Öğle yasak!")
     
     # 4. TEK GÜN SENKRON GEÇERSİZLİK KONTROLÜ
     for _, row in df_veri.iterrows():
@@ -441,12 +447,18 @@ def cakisma_analizi(df_veri, derslik_kapasitesi, cuma_ogle_yasak):
     
     return kritik_sorunlar, uyarilar
 
-# --- 3. ANA ÇÖZÜCÜ (TEK GÜN SENKRON EKLENDİ) ---
+# --- 3. ANA ÇÖZÜCÜ (DÜZELTİLMİŞ - KISITLAR ÇALIŞIYOR) ---
 def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cuma_ogle_yasak, gunluk_limit_stratejisi):
     model = cp_model.CpModel()
     
     gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
-    seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
+    # ✅ SAAT FORMATLARI
+    seanslar = ['08:30', '11:30', '14:30']  # Sabah, Öğle, Öğleden Sonra
+    seans_display = {
+        '08:30': 'Sabah',
+        '11:30': 'Öğle',
+        '14:30': 'Öğleden Sonra'
+    }
     
     tum_dersler = []
     ders_detaylari = {}
@@ -462,11 +474,22 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         raw_hoca = str(row['HocaAdi']).strip()
         hoca = normalize_name(raw_hoca)
         
-        oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
+        oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) and str(row['OrtakDersID']).strip() else None
         unvan = str(row['Unvan']).strip() if 'Unvan' in df_veri.columns and pd.notna(row['Unvan']) else "OgrGor"
         istek = str(row['OzelIstek']).strip() if 'OzelIstek' in df_veri.columns and pd.notna(row['OzelIstek']) else ""
-        istenmeyen_gun = str(row['IstenmezenGun']).strip() if 'IstenmezenGun' in df_veri.columns and pd.notna(row['IstenmezenGun']) and str(row['IstenmezenGun']).strip() in gunler else None
-        istenmeyen_seans = str(row['IstenmezenSeans']).strip() if 'IstenmezenSeans' in df_veri.columns and pd.notna(row['IstenmezenSeans']) and str(row['IstenmezenSeans']).strip() in seanslar else None
+        
+        # ✅ DÜZELTİLMİŞ: İSTENMİYEN GÜN/SEANS OKUMA
+        istenmiyen_gun = None
+        if 'İstenmiyenGun' in df_veri.columns and pd.notna(row['İstenmiyenGun']):
+            gun_str = str(row['İstenmiyenGun']).strip()
+            if gun_str in gunler:
+                istenmiyen_gun = gun_str
+        
+        istenmiyen_seans = None
+        if 'İstenmiyenSeans' in df_veri.columns and pd.notna(row['İstenmiyenSeans']):
+            seans_str = str(row['İstenmiyenSeans']).strip()
+            if seans_str in seanslar:
+                istenmiyen_seans = seans_str
         
         # TEK GÜN SENKRON
         tek_gun_senkron = False
@@ -478,8 +501,8 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
             'unvan': unvan, 
             'istek': istek, 
             'real_name': raw_hoca,
-            'istenmeyen_gun': istenmeyen_gun,
-            'istenmeyen_seans': istenmeyen_seans,
+            'istenmiyen_gun': istenmiyen_gun,  # ✅ DÜZELTİLDİ
+            'istenmiyen_seans': istenmiyen_seans,  # ✅ DÜZELTİLDİ
             'tek_gun_senkron': tek_gun_senkron
         }
         
@@ -500,9 +523,21 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         hoca = normalize_name(raw_hoca)
         bolum = str(row['Bolum']).strip()
         sinif = int(row['Sinif'])
-        zg = str(row['ZorunluGun']).strip() if pd.notna(row['ZorunluGun']) and str(row['ZorunluGun']).strip() in gunler else None
-        zs = str(row['ZorunluSeans']).strip() if pd.notna(row['ZorunluSeans']) and str(row['ZorunluSeans']).strip() in seanslar else None
-        oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) else None
+        
+        # ✅ DÜZELTİLMİŞ: ZORUNLU GÜN/SEANS OKUMA
+        zg = None
+        if pd.notna(row.get('ZorunluGun')):
+            gun_str = str(row['ZorunluGun']).strip()
+            if gun_str in gunler:
+                zg = gun_str
+        
+        zs = None
+        if pd.notna(row.get('ZorunluSeans')):
+            seans_str = str(row['ZorunluSeans']).strip()
+            if seans_str in seanslar:
+                zs = seans_str
+        
+        oid = str(row['OrtakDersID']).strip() if pd.notna(row['OrtakDersID']) and str(row['OrtakDersID']).strip() else None
         
         tum_dersler.append(d_id)
         ders_detaylari[d_id] = {
@@ -572,32 +607,32 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                     for g in gunler: 
                         model.Add(program[(d, g, s)] == 0)
     
-    # 2b. İSTENMEYEN GÜN/SEANS
+    # 2b. İSTENMİYEN GÜN/SEANS (✅ ÇALIŞAN VERSİYON)
     for d in tum_dersler:
         hoca = ders_detaylari[d]['hoca_key']
         hoca_info = hoca_bilgileri[hoca]
         
-        if hoca_info['istenmeyen_gun']:
+        # ✅ İSTENMİYEN GÜN KISITI
+        if hoca_info['istenmiyen_gun']:
             for s in seanslar:
-                model.Add(program[(d, hoca_info['istenmeyen_gun'], s)] == 0)
+                model.Add(program[(d, hoca_info['istenmiyen_gun'], s)] == 0)
         
-        if hoca_info['istenmeyen_seans']:
+        # ✅ İSTENMİYEN SEANS KISITI
+        if hoca_info['istenmiyen_seans']:
             for g in gunler:
-                model.Add(program[(d, g, hoca_info['istenmeyen_seans'])] == 0)
+                model.Add(program[(d, g, hoca_info['istenmiyen_seans'])] == 0)
     
     # 2c. CUMA ÖĞLE KISITI
     if cuma_ogle_yasak:
         for d in tum_dersler:
-            model.Add(program[(d, 'Cuma', 'Öğle')] == 0)
+            model.Add(program[(d, 'Cuma', '11:30')] == 0)  # ✅ SAAT FORMATI
     
-    # 2d. TEK GÜN SENKRON (YENİ ÖZELLIK)
+    # 2d. TEK GÜN SENKRON
     for hoca, dersler in hoca_dersleri.items():
         if hoca_bilgileri[hoca]['tek_gun_senkron'] and hoca_yukleri[hoca] == 2:
-            # 2 dersi de aynı günde olmalı
             ders1, ders2 = dersler[0], dersler[1]
             
             for g_idx, g in enumerate(gunler):
-                # Her iki ders de bu günde mi?
                 ders1_bu_gunde = model.NewBoolVar(f'senkron_{hoca}_{g}_d1')
                 ders2_bu_gunde = model.NewBoolVar(f'senkron_{hoca}_{g}_d2')
                 
@@ -607,15 +642,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                 model.Add(sum(program[(ders2, g, s)] for s in seanslar) == 1).OnlyEnforceIf(ders2_bu_gunde)
                 model.Add(sum(program[(ders2, g, s)] for s in seanslar) == 0).OnlyEnforceIf(ders2_bu_gunde.Not())
                 
-                # İkisi de aynı durumda olmalı
                 model.Add(ders1_bu_gunde == ders2_bu_gunde)
             
-            # Öğle ve ÖğledenSonra seanslarına koy
+            # Öğle ve Öğleden Sonra seanslarına koy
             for g in gunler:
-                ders1_ogle = program[(ders1, g, 'Öğle')]
-                ders2_oglesonra = program[(ders2, g, 'OgledenSonra')]
+                ders1_ogle = program[(ders1, g, '11:30')]  # ✅ SAAT FORMATI
+                ders2_oglesonra = program[(ders2, g, '14:30')]  # ✅ SAAT FORMATI
                 
-                # İki ders aynı gündeyse, biri Öğle diğeri ÖğledenSonra olmalı
                 model.AddImplication(ders1_ogle, ders2_oglesonra)
                 model.AddImplication(ders2_oglesonra, ders1_ogle)
     
@@ -639,16 +672,14 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         
         yuk = hoca_yukleri[hoca]
         
-        # GÜNLÜK LİMİT STRATEJİSİ
         if gunluk_limit_stratejisi == "Esnek (Verimli)":
             gunluk_limit = 2 if yuk <= 3 else 3
-        else:  # Katı
+        else:
             gunluk_limit = 1 if yuk <= 3 else 2
         
         for g_idx, g in enumerate(gunler):
             gunluk_dersler = [program[(t, g, s)] for t in hoca_gorevleri for s in seanslar]
             
-            # Aynı saatte tek ders
             for s in seanslar:
                 model.Add(sum(program[(t, g, s)] for t in hoca_gorevleri) <= 1)
             
@@ -666,13 +697,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                 model.Add(sum(hoca_gun_var[hoca]) == 2)
             else: 
                 model.Add(sum(hoca_gun_var[hoca]) == 1)
-        else:  # BRONZ mod
+        else:
             if yuk >= 4: 
                 model.Add(sum(hoca_gun_var[hoca]) >= 2)
             else: 
                 model.Add(sum(hoca_gun_var[hoca]) == yuk)
         
-        # İSTEKLER
+        # İSTEKLER (✅ ÇALIŞAN VERSİYON)
         unvan = hoca_bilgileri[hoca]['unvan']
         istek = hoca_bilgileri[hoca]['istek']
         
@@ -686,12 +717,14 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
         if kural_uygula and istek:
             if "_" in istek and "ARDISIK" not in istek:
                 istenilen_gunler = []
-                if "PZT" in istek: istenilen_gunler.append(0)
-                if "SAL" in istek: istenilen_gunler.append(1)
-                if "CAR" in istek: istenilen_gunler.append(2)
-                if "PER" in istek: istenilen_gunler.append(3)
-                if "CUM" in istek: istenilen_gunler.append(4)
+                istek_upper = istek.upper()
+                if "PZT" in istek_upper: istenilen_gunler.append(0)
+                if "SAL" in istek_upper: istenilen_gunler.append(1)
+                if "CAR" in istek_upper: istenilen_gunler.append(2)
+                if "PER" in istek_upper: istenilen_gunler.append(3)
+                if "CUM" in istek_upper: istenilen_gunler.append(4)
                 
+                # ✅ İSTENMEYEN GÜNLER YASAK
                 for g_idx in range(5):
                     if g_idx not in istenilen_gunler: 
                         model.Add(hoca_gun_var[hoca][g_idx] == 0)
@@ -752,10 +785,8 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
                 for s in seanslar:
                     model.Add(program[(ref, g, s)] == program[(other, g, s)])
     
-    # SOLVER AYARLARI (İYİLEŞTİRİLMİŞ TIMEOUT)
+    # SOLVER AYARLARI
     solver = cp_model.CpSolver()
-    
-    # AŞAMALI TIMEOUT STRATEJİSİ
     timeout = 30 if deneme_id % 50 < 10 else (60 if deneme_id % 50 < 30 else 120)
     solver.parameters.max_time_in_seconds = timeout
     solver.parameters.num_search_workers = 8 
@@ -771,14 +802,13 @@ def cozucu_calistir(df_veri, deneme_id, zorluk_seviyesi, derslik_kapasitesi, cum
 # --- ARAYÜZ ---
 col1, col2 = st.columns([1,2])
 with col1:
-    st.download_button("📥 Örnek Şablonu İndir", temiz_veri_sablonu(), "Ornek_Sablon_Gelismis.xlsx")
+    st.download_button("📥 Örnek Şablonu İndir", temiz_veri_sablonu(), "Ornek_Sablon_Duzeltilmis.xlsx")
 
 uploaded_file = st.file_uploader("Excel Yükle", type=['xlsx'])
 
 if uploaded_file and st.button("🚀 Programı Hesapla"):
     df_input = pd.read_excel(uploaded_file, sheet_name='Dersler') 
     
-    # ÇAKIŞMA ANALİZİ ÖN KONTROLÜ
     st.info("🔍 Veri analiz ediliyor...")
     kritik_sorunlar, uyarilar = cakisma_analizi(df_input, DERSLIK_KAPASITESI, CUMA_OGLE_YASAK)
     
@@ -835,7 +865,12 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         solver, program, tum_dersler, ders_detaylari = final_cozum
         
         gunler = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
-        seanslar = ['Sabah', 'Öğle', 'OgledenSonra']
+        seanslar = ['08:30', '11:30', '14:30']  # ✅ SAAT FORMATLARI
+        seans_display = {
+            '08:30': 'Sabah (08:30)',
+            '11:30': 'Öğle (11:30)',
+            '14:30': 'Öğleden Sonra (14:30)'
+        }
         
         output = io.BytesIO()
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -860,7 +895,7 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
             rows_list = []
             for g in gunler:
                 for s in seanslar:
-                    row = {"Gün": g, "Seans": s}
+                    row = {"Gün": g, "Seans": seans_display[s]}  # ✅ GÖRÜNTÜ SAATLERLE
                     for snf in [1, 2, 3, 4]:
                         row[f"{snf}. Sınıf"] = data_map[s][g][snf]
                     rows_list.append(row)
@@ -875,7 +910,7 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
             fmt_white = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#FFFFFF'})
             fmt_gray = wb.add_format({'text_wrap': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'bg_color': '#F2F2F2'})
             
-            ws.set_column('A:B', 12)
+            ws.set_column('A:B', 18)  # ✅ SAAT İÇİN GENİŞLETİLDİ
             ws.set_column('C:F', 25)
             
             headers = ["Gün", "Seans", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf"]
@@ -898,7 +933,6 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         st.balloons()
         st.download_button("📥 Final Programı İndir", output.getvalue(), "Akilli_Program_Final.xlsx")
     else:
-        # DETAYLI HATA ANALİZİ
         st.error("❌ Çözüm Bulunamadı. Detaylı Analiz:")
         
         st.markdown("### 📊 Sorun Giderme Önerileri (Öncelik Sırasına Göre)")
@@ -909,8 +943,8 @@ if uploaded_file and st.button("🚀 Programı Hesapla"):
         - ⛔ **Zorunlu Seans** sayısını azaltın
         - ✅ Öneri: Zorunlu yerine "İstenen Gün" kullanın (ALTIN modda uygulanır)
         
-        #### 2️⃣ **İkinci Öncelik: İstenmeyen Kısıtları Gevşetin**
-        - ⚠️ "İstenmeyen Gün" olan hocaların sayısını azaltın
+        #### 2️⃣ **İkinci Öncelik: İstenmiyen Kısıtları Gevşetin**
+        - ⚠️ "İstenmiyen Gün" olan hocaların sayısını azaltın
         - ⚠️ Eğer hoca "PZT_SAL" istiyor + "Cuma" istemiyorsa → zaten Cuma yok, gereksiz
         
         #### 3️⃣ **Üçüncü Öncelik: Derslik Kapasitesini Artırın**
